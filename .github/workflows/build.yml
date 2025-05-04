@@ -23,7 +23,7 @@ env:
   PULL_IMAGE_REGISTRY: ghcr.io/ublue-os
   BASE_IMAGE_NAME: "cosmic-atomic"
   BASE_IMAGE_FLAVOR: "main"
-  DEFAULT_TAG: "latest"  # The default tag to use when building the image
+  DEFAULT_TAG: "latest"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
@@ -164,52 +164,36 @@ jobs:
           echo "Generated the following:"
           cat $GITHUB_OUTPUT
 
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
         with:
           containerfiles: |
             ./Containerfile
-          image: localhost/${{ env.IMAGE_NAME }}  # Explicitly use localhost prefix
+          image: ${{ env.IMAGE_NAME }}  # No localhost prefix
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false
-          push: false  # Make sure we don't push, just build locally 
+          push: false  # Ensure we save locally
+
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
       # You can enable it by uncommenting the following lines:
      
-      - name: Run Rechunker
+
+      # Skip rechunk and just use the built image directly
+      - name: Skip Rechunk (Use Image As Is)
         id: rechunk
         run: |
-          # First, verify the image exists locally
+          # Show available images
           sudo podman images
     
-          # Use the rechunker directly
-          sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.2
-    
-          # Create a container to access the image content
-          CREF=$(sudo podman create localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} bash)
-    
-          # Run rechunker on the container
-          sudo podman run --rm \
-            --privileged \
-            -v /var/lib/containers:/var/lib/containers \
-            -v /var/run/containers:/var/run/containers \
-            ghcr.io/hhd-dev/rechunk:v1.1.2 \
-            "$CREF" \
-            "localhost/${{ env.IMAGE_NAME }}:rechunked" \
-            --label "${{ steps.metadata.outputs.labels }}"
-    
-          # Tag the rechunked image with all our tags
-          for tag in ${{ steps.metadata.outputs.tags }}; do
-            sudo podman tag localhost/${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:$tag
-          done
-    
-          # Output the reference for later use
-          echo "ref=localhost/${{ env.IMAGE_NAME }}:rechunked" >> $GITHUB_OUTPUT
-          echo "Version=${{ env.SOURCE_IMAGE_VERSION }}" >> $GITHUB_OUTPUT
+          # Use the main built image directly for later steps
+          echo "ref=${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}" >> $GITHUB_OUTPUT
+          echo "version=${{ env.SOURCE_IMAGE_VERSION }}" >> $GITHUB_OUTPUT
+
 
       - name: Generate tags
         id: generate-tags
@@ -224,8 +208,7 @@ jobs:
 
           # Use latest var to check if we should tag as latest
           unset LATEST
-          if [[ "${{ env.IS_STABLE_VERSION }}" == "true" ]] && \
-              [[ "${{ env.IS_STABLE_VERSION }}" == "true" ]]; then
+          if [[ "${{ env.IS_STABLE_VERSION }}" == "true" ]]; then
                 LATEST="1"
           fi
 
