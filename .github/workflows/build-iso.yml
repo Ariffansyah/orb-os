@@ -1,103 +1,126 @@
----
-name: Build ISOs
-
+name: build orb iso
 on:
   workflow_dispatch:
-    inputs:
-      upload-to-s3:
-        description: "Upload to S3"
-        required: false
-        default: false
-        type: boolean
-      platform:
-        required: true
-        type: choice
-        options:
-          - amd64
-          - arm64
   pull_request:
     branches:
       - main
     paths:
-      - './iso.toml'
-      - './.github/workflows/build-iso.yml'
-      - './Justfile'
+      - ".github/workflows/build_iso.yml"
 
 env:
-  IMAGE_REGISTRY: "ghcr.io/${{ github.repository }}"
-  DEFAULT_TAG: "latest"
+  IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build ISOs
-    runs-on: ${{ inputs.platform == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
-    strategy:
-      fail-fast: false
+  build-iso:
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: read
+      packages: write
       id-token: write
+    strategy:
+      fail-fast: false
+    env:
+      FEDORA_MAJOR_VERSION: 41
+      IMAGE_REGISTRY: ghcr.io/${{ github.repository_owner }}
+      IMAGE_NAME: ${{ github.event.repository.name }}
 
     steps:
-      - name: lower case the image registry in case of any capitalization
+      # Unified environment variables declaration to make things neat.
+      - name: Define extra environment variables
         run: |
-          echo "IMAGE_REGISTRY=${IMAGE_REGISTRY,,}" >> ${GITHUB_ENV}
-      
-      - name: Install dependencies
-        if: inputs.platform == 'arm64'
-        run: |
-          set -x
-          sudo apt update -y
-          sudo apt install -y \
-            podman
-
-      - name: Maximize build space
-        if: inputs.platform != 'arm64'
-        uses: ublue-os/remove-unwanted-software@cc0becac701cf642c8f0a6613bbdaf5dc36b259e # v9
-        with:
-          remove-codeql: true
+          echo "CONTAINER_TAR eGET=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "SHA_HEAD_SHORT=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "KERNEL_FLAVOR=${KERNEL_FLAVOR}" >> $GITHUB_ENV
+          echo "FEDORA_VERSION=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
+          echo "IMAGE_TAG=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
 
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+        uses: actions/checkout@v4
 
-      - name: Setup Just
-        uses: extractions/setup-just@e33e0265a09d6d736e2ee1e0eb685ef1de4669ff # v3
-
-      - name: Build ISO
-        id: build
-        uses: ublue-os/bootc-image-builder-action@main
+      # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
+      # https://github.com/macbre/push-to-ghcr/issues/12
+      - name: Lowercase Registry
+        id: registry_case
+        uses: ASzc/change-string-case-action@v6
         with:
-          bootc-image-builder-image: ghcr.io/centos-workstation/bootc-image-builder:latest
-          use-librepo: true
-          config-file: ./iso.toml
-          image: ${{ env.IMAGE_REGISTRY }}:${{ env.DEFAULT_TAG }}
+          string: ${{ env.IMAGE_REGISTRY }}
+
+      - name: Get Flatpak dependencies
+        id: flatpak-dependencies
+        env:
+          IMAGE_FULL: ${{ steps.registry_case.outputs.lowercase }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        shell: bash
+        run: |
+          set -euox pipefail
+
+          IMAGE="${IMAGE_FULL}"
+
+          # Create temporary directory
+          TEMP_FLATPAK_INSTALL_DIR=$(mktemp -d -p /tmp flatpak-XXXXXX)
+          FLATPAK_REFS_DIR=./flatpak-refs
+          FLATPAK_REFS_DIR_ABS=$(realpath "${FLATPAK_REFS_DIR}")
+          mkdir -p "${FLATPAK_REFS_DIR}"
+          mv flatpaks "${FLATPAK_REFS_DIR_ABS}/flatpaks"
+
+          # Read the list of Flatpak packages from the manifest
+          FLATPAK_REFS=()
+          while IFS= read -r line; do
+            FLATPAK_REFS+=("$line")
+          done < "${FLATPAK_REFS_DIR}/flatpaks"
+
+          echo "Flatpak refs: ${FLATPAK_REFS[@]}"
+
+          # Generate installation script
+          cat <<EOF > "${TEMP_FLATPAK_INSTALL_DIR}/install-flatpaks.sh"
+          mkdir -p /flatpak/flatpak /flatpak/triggers
+          mkdir /var/tmp
+          chmod -R 1777 /var/tmp
+          flatpak config --system --set languages "*"
+          flatpak remote-add --system flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --system -y flathub ${FLATPAK_REFS[@]}
+          ostree refs --repo=\${FLATPAK_SYSTEM_DIR}/repo | grep '^deploy/' | grep -v 'org\.freedesktop\.Platform\.openh264' | sed 's/^deploy\///g' > /output/flatpaks-with-deps
+          EOF
+          docker run --rm --privileged \
+            --entrypoint /bin/bash \
+            -e FLATPAK_SYSTEM_DIR=/flatpak/flatpak \
+            -e FLATPAK_TRIGGERS_DIR=/flatpak/triggers \
+            -v ${FLATPAK_REFS_DIR_ABS}:/output \
+            -v ${TEMP_FLATPAK_INSTALL_DIR}:/temp_flatpak_install_dir \
+            ${IMAGE} /temp_flatpak_install_dir/install-flatpaks.sh
+          docker rmi ${IMAGE}
+          cat ${FLATPAK_REFS_DIR}/flatpaks-with-deps
+
+          echo "FLATPAK_REFS_DIR=${FLATPAK_REFS_DIR}" >> $GITHUB_OUTPUT
+
+      - name: Build ISOs
+        uses: jasonn3/build-container-installer@v1.2.4
+        id: build
+        with:
+          iso_name: ${{ env.IMAGE_NAME }}-${{ env.FEDORA_VERSION }}.iso
+          arch: x86_64
+          image_name: ${{ env.IMAGE_NAME }}
+          image_repo: ${{ steps.registry_case.outputs.lowercase }}
+          # We cannot use Silverblue variant since we need the user creation options in anaconda
+          variant: "Cosmic"
+          version: ${{ env.FEDORA_VERSION }}
+          image_tag: ${{ env.IMAGE_TAG }}
+          secure_boot_key_url: "https://github.com/ublue-os/akmods/raw/main/certs/public_key.der"
+          enrollment_password: "universalblue"
+          flatpak_remote_refs_dir: ${{ steps.flatpak-dependencies.outputs.FLATPAK_REFS_DIR }}
+          enable_flatpak_dependencies: false
 
       - name: Upload ISOs and Checksum to Job Artifacts
-        if: inputs.upload-to-s3 != true && github.event_name != 'pull_request'
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@v4
         with:
-          path: ${{ steps.build.outputs.output-directory }}
+          name: ${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}
+          path: |
+            ${{ steps.build.outputs.iso_path }}
+            ${{ steps.build.outputs.iso_path }}-CHECKSUM
           if-no-files-found: error
           retention-days: 0
-          compression-level: 0
+          compression-level: 3
           overwrite: true
-      
-      - name: Upload to S3
-        if: inputs.upload-to-s3 == true && github.event_name != 'pull_request'
-        shell: bash
-        env:
-          RCLONE_CONFIG_S3_TYPE: s3
-          RCLONE_CONFIG_S3_PROVIDER: ${{ secrets.S3_PROVIDER }}
-          RCLONE_CONFIG_S3_ACCESS_KEY_ID: ${{ secrets.S3_ACCESS_KEY_ID }}
-          RCLONE_CONFIG_S3_SECRET_ACCESS_KEY: ${{ secrets.S3_SECRET_ACCESS_KEY }}
-          RCLONE_CONFIG_S3_REGION: ${{ secrets.S3_REGION }}
-          RCLONE_CONFIG_S3_ENDPOINT: ${{ secrets.S3_ENDPOINT }}
-          SOURCE_DIR: ${{ steps.build.outputs.output-directory }}
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y rclone
-          rclone copy $SOURCE_DIR S3:${{ secrets.S3_BUCKET_NAME }}
