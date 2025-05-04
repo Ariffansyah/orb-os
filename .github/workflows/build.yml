@@ -18,6 +18,8 @@ env:
   IMAGE_DESC: "My Customized Universal Blue Image"
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/120078124?s=200&v=4"  # You should put your own image here so that you get a fancy profile image on https://artifacthub.io/!
+  FEDORA_VERSION: "42"
+  IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
@@ -86,6 +88,56 @@ jobs:
           sep-tags: " "
           sep-annotations: " "
 
+      - name: Get source versions
+        id: labels
+        uses: Wandalen/wretry.action@v3.8.0
+        with:
+          attempt_limit: 3
+          attempt_delay: 15000
+          command: |
+            set -eo pipefail
+            skopeo inspect docker://${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }} > source.json
+            ver=$(jq -r '.Labels["org.opencontainers.image.version"]' source.json)
+            if [ -z "$ver" ] || [ "null" = "$ver" ]; then
+              echo "inspected image version must not be empty or null"
+              exit 1
+            fi
+            echo "SOURCE_IMAGE_VERSION=$ver" >> $GITHUB_ENV
+
+      # Generate a primary version key that appears
+      # in rpm-ostree status, and github.
+      - name: Generate Version
+        id: generate-version
+        shell: bash
+        run: |
+          # Generate the primary version key that will be stored on os-release,
+          # shown on the bootloader, and used for the image tag.
+          UPSTREAM_TAG="${{ env.SOURCE_IMAGE_VERSION }}"
+          # Remove .0 suffix from upstream tag so we can add our own and
+          # the wrong one does not end up in the image.
+          UPSTREAM_TAG="${UPSTREAM_TAG%.*}"
+          FEDORA_VERSION="${{ env.FEDORA_VERSION }}"
+          SHA_SHORT="${GITHUB_SHA::7}"
+
+          if [ -n "${{ github.event.pull_request.number }}" ]; then
+            VERSION="pr-${FEDORA_VERSION}-${{ github.event.pull_request.number }}"
+            PRETTY_VERSION="PR (${{ github.event.pull_request.number }}, ${UPSTREAM_TAG})"
+          elif [[ ${{ github.ref_name }} == "unstable" ]]; then
+            VERSION="unstable-${UPSTREAM_TAG}"
+            PRETTY_VERSION="Unstable (F${UPSTREAM_TAG}, #${SHA_SHORT})"
+          elif [[ ${{ github.ref_name }} == "testing" ]]; then
+            VERSION="testing-${UPSTREAM_TAG}"
+            PRETTY_VERSION="Testing (F${UPSTREAM_TAG}, #${SHA_SHORT})"
+          else
+            VERSION="${UPSTREAM_TAG}"
+            PRETTY_VERSION="Stable (F${UPSTREAM_TAG})"
+          fi
+          echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+          echo "pretty=${PRETTY_VERSION}" >> $GITHUB_OUTPUT
+
+          echo "Generated the following:"
+          cat $GITHUB_OUTPUT
+
       - name: Build Image
         id: build_image
         uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2
@@ -98,21 +150,80 @@ jobs:
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false
-
+ 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
       # You can enable it by uncommenting the following lines:
-      # - name: Run Rechunker
-      #   id: rechunk
-      #   uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
-      #   with:
-      #     rechunk: 'ghcr.io/hhd-dev/rechunk:v1.0.1'
-      #     ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-      #     prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-      #     skip_compression: true
-      #     version: ${{ env.CENTOS_VERSION }}
-      #     labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+      - name: Run Rechunker
+        id: rechunk
+        uses: hhd-dev/rechunk@f153348d8100c1f504dec435460a0d7baf11a9d2 # v1.1.1
+        with:
+          rechunk: 'ghcr.io/hhd-dev/rechunk:v1.0.1'
+          ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          prev-ref: "${{ env.IMAGE_REGISTRY }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          skip_compression: true
+          version: ${{ env.CENTOS_VERSION }}
+          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+
+      - name: Generate tags
+        id: generate-tags
+        shell: bash
+        run: |
+          # Common vars for generating tags
+          VERSION_TAG="${{ steps.rechunk.outputs.version }}"
+          UPSTREAM_TAG="${{ env.SOURCE_IMAGE_VERSION }}"
+          FEDORA_VERSION="${{ env.FEDORA_VERSION }}"
+          SHA_SHORT="${GITHUB_SHA::7}"
+          BUILD_TAGS=( "${VERSION_TAG}" )
+
+          # Use latest var to check if we should tag as latest
+          unset LATEST
+          if [[ "${{ env.IS_STABLE_VERSION }}" == "true" ]] && \
+              [[ "${{ env.IS_STABLE_VERSION }}" == "true" ]]; then
+                LATEST="1"
+          fi
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # Track latest ver per PR
+            if [ -n "$LATEST" ]; then
+                BUILD_TAGS+=("pr-${{ github.event.pull_request.number }}")
+            fi
+          elif [[ ${{ github.ref_name }} == "unstable" ]]; then
+            # Per fedora version
+            BUILD_TAGS+=("${FEDORA_VERSION}-unstable")
+            BUILD_TAGS+=("unstable-${FEDORA_VERSION}") # flip ver to be last
+
+            if [ -n "$LATEST" ]; then
+                BUILD_TAGS+=("unstable")
+            fi
+          elif [[ ${{ github.ref_name }} == "testing" ]]; then
+            # Per fedora version
+            BUILD_TAGS+=("${FEDORA_VERSION}-testing")
+            BUILD_TAGS+=("testing-${FEDORA_VERSION}") # flip ver to be last
+
+            if [ -n "$LATEST" ]; then
+                BUILD_TAGS+=("testing")
+            fi
+          else
+            BUILD_TAGS+=("${FEDORA_VERSION}")
+            BUILD_TAGS+=("stable-${VERSION_TAG}")
+
+            # Per fedora version
+            BUILD_TAGS+=("${FEDORA_VERSION}-stable")
+            BUILD_TAGS+=("stable-${FEDORA_VERSION}") # flip ver to be last
+
+            if [ -n "$LATEST" ]; then
+              BUILD_TAGS+=("latest" "stable")
+            fi
+          fi
+
+          echo "Generated the following build tags: "
+          for TAG in "${BUILD_TAGS[@]}"; do
+              echo "${TAG}"
+          done
+          echo "alias_tags=${BUILD_TAGS[*]}" >> $GITHUB_OUTPUT
+
 
       # This is necessary so that the podman socket can find the rechunked image on its storage
       # - name: Load in podman and tag
