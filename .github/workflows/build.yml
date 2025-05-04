@@ -20,6 +20,10 @@ env:
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/120078124?s=200&v=4"  # You should put your own image here so that you get a fancy profile image on https://artifacthub.io/!
   FEDORA_VERSION: "42"
   IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
+  PULL_IMAGE_REGISTRY: ghcr.io/ublue-os
+  BASE_IMAGE_NAME: "cosmic-atomic"
+  BASE_IMAGE_FLAVOR: "main"
+
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
