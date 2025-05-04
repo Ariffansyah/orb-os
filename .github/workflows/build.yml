@@ -23,7 +23,7 @@ env:
   PULL_IMAGE_REGISTRY: ghcr.io/ublue-os
   BASE_IMAGE_NAME: "cosmic-atomic"
   BASE_IMAGE_FLAVOR: "main"
-  DEFAULT_TAG: "latest"
+  DEFAULT_TAG: "latest"  # The default tag to use when building the image
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
@@ -188,7 +188,7 @@ jobs:
         with:
           rechunk: "ghcr.io/hhd-dev/rechunk:v1.1.2"
           ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          prev-ref: "${{ steps.registry_case.outputs.lowercase }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
+          prev-ref: ""
           skip_compression: false
           version: ${{ env.FEDORA_MAJOR_VERSION }}
           labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
