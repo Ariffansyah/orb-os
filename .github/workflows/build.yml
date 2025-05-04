@@ -202,14 +202,14 @@ jobs:
             "localhost/${{ env.IMAGE_NAME }}:rechunked" \
             --label "${{ steps.metadata.outputs.labels }}"
     
-        # Tag the rechunked image with all our tags
-        for tag in ${{ steps.metadata.outputs.tags }}; do
-        sudo podman tag localhost/${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:$tag
-        done
+          # Tag the rechunked image with all our tags
+          for tag in ${{ steps.metadata.outputs.tags }}; do
+            sudo podman tag localhost/${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:$tag
+          done
     
-        # Output the reference for later use
-        echo "ref=localhost/${{ env.IMAGE_NAME }}:rechunked" >> $GITHUB_OUTPUT
-        echo "Version=${{ env.SOURCE_IMAGE_VERSION }}" >> $GITHUB_OUTPUT
+          # Output the reference for later use
+          echo "ref=localhost/${{ env.IMAGE_NAME }}:rechunked" >> $GITHUB_OUTPUT
+          echo "Version=${{ env.SOURCE_IMAGE_VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Generate tags
         id: generate-tags
