@@ -170,13 +170,11 @@ jobs:
         with:
           containerfiles: |
             ./Containerfile
-          # Postfix image name with -custom to make it a little more descriptive
-          # Syntax: https://docs.github.com/en/actions/learn-github-actions/expressions#format
-          image: ${{ env.IMAGE_NAME }}
+          image: localhost/${{ env.IMAGE_NAME }}  # Explicitly use localhost prefix
           tags: ${{ steps.metadata.outputs.tags }}
           labels: ${{ steps.metadata.outputs.labels }}
           oci: false
- 
+          push: false  # Make sure we don't push, just build locally 
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
@@ -184,14 +182,34 @@ jobs:
      
       - name: Run Rechunker
         id: rechunk
-        uses: hhd-dev/rechunk@v1.1.3
-        with:
-          rechunk: "ghcr.io/hhd-dev/rechunk:v1.1.2"
-          ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          prev-ref: ""
-          skip_compression: false
-          version: ${{ env.FEDORA_MAJOR_VERSION }}
-          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+        run: |
+          # First, verify the image exists locally
+          sudo podman images
+    
+          # Use the rechunker directly
+          sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.2
+    
+          # Create a container to access the image content
+          CREF=$(sudo podman create localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} bash)
+    
+          # Run rechunker on the container
+          sudo podman run --rm \
+            --privileged \
+            -v /var/lib/containers:/var/lib/containers \
+            -v /var/run/containers:/var/run/containers \
+            ghcr.io/hhd-dev/rechunk:v1.1.2 \
+            "$CREF" \
+            "localhost/${{ env.IMAGE_NAME }}:rechunked" \
+            --label "${{ steps.metadata.outputs.labels }}"
+    
+        # Tag the rechunked image with all our tags
+        for tag in ${{ steps.metadata.outputs.tags }}; do
+        sudo podman tag localhost/${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:$tag
+        done
+    
+        # Output the reference for later use
+        echo "ref=localhost/${{ env.IMAGE_NAME }}:rechunked" >> $GITHUB_OUTPUT
+        echo "Version=${{ env.SOURCE_IMAGE_VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Generate tags
         id: generate-tags
