@@ -193,8 +193,6 @@ jobs:
         # We are tight on space, need at least 2x for OSTree
         run: |
           sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
-          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/akmods:${{ env.KERNEL_FLAVOR }}-${{ env.FEDORA_VERSION }}-${{ env.KERNEL_VERSION }}
-          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/akmods-extra:${{ env.KERNEL_FLAVOR }}-${{ env.FEDORA_VERSION }}-${{ env.KERNEL_VERSION }}
 
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
