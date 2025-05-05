@@ -177,19 +177,17 @@ jobs:
         id: build_image
         run: |
           sudo buildah build \
-            --target ${{ env.CONTAINER_TARGET }} \
-            --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }} \
-            --build-arg IMAGE_FLAVOR=${{ env.IMAGE_FLAVOR }} \
-            --build-arg IMAGE_VENDOR=${{ github.repository_owner }} \
-            --build-arg BASE_IMAGE_NAME=${{ env.BASE_IMAGE_NAME }} \
-            --build-arg BASE_IMAGE_FLAVOR=${{ env.BASE_IMAGE_FLAVOR }} \
-            --build-arg FEDORA_VERSION=${{ env.FEDORA_MAJOR_VERSION }} \
-            --build-arg IMAGE_BRANCH=${{ github.ref_name }} \
-            --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
-            --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
-            --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
-            --tag ${{ env.IMAGE_NAME }} .
-
+          --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }} \
+          --build-arg IMAGE_FLAVOR=${{ env.IMAGE_FLAVOR }} \
+          --build-arg IMAGE_VENDOR=${{ github.repository_owner }} \
+          --build-arg BASE_IMAGE_NAME=${{ env.BASE_IMAGE_NAME }} \
+          --build-arg BASE_IMAGE_FLAVOR=${{ env.BASE_IMAGE_FLAVOR }} \
+          --build-arg FEDORA_VERSION=${{ env.FEDORA_MAJOR_VERSION }} \
+          --build-arg IMAGE_BRANCH=${{ github.ref_name }} \
+          --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
+          --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
+          --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
+          --tag ${{ env.IMAGE_NAME }} .
       # Deleting unused images after build
       - name: Remove auxiliary images
         # We are tight on space, need at least 2x for OSTree
