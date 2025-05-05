@@ -33,7 +33,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ptyxis \
     tmux \
     || true && \
-    /usr/libexec/container/clean.sh && \
+    /usr/libexec/build/clean.sh && \
     ostree container commit
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -44,7 +44,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     unzip \
     neovim \
     || true && \
-    /usr/libexec/container/clean.sh && \
+    /usr/libexec/build/clean.sh && \
     ostree container commit
 
 ### LINTING
