@@ -53,6 +53,25 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    fastfetch \
+    nodejs \
+    npm \
+    java-latest-openjdk \
+    golang \
+    || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    python3 \
+    python3-pip \
+    python3-devel \
+    || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+
 ### LINTING
 ## Verify final image and contents are correct.
 COPY override /
