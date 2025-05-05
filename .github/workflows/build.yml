@@ -103,35 +103,37 @@ jobs:
       # NOTE: It seems like prepull using wretry does not work along with redhat buildah
       # Need to run buildah using bash if wanna work properly.
       #
+      # For the first occurrence - Pull main, rechunk images
       - name: Pull main, rechunk images
-        id: labels
         uses: nick-fields/retry@v2
         with:
-          attempt_limit: 3
-          attempt_delay: 15000
+          timeout_minutes: 5
+          max_attempts: 3
+          retry_wait_seconds: 15
           command: |
             # pull the base images used for FROM in Containerfile so
             # we can retry on that unfortunately common failure case
             sudo podman pull ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
-
+      
             # Add rechunk as well to remove this source of failure
             sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.1
 
       - name: Get source versions
-        id: source_versions
+        id: source_versions  # Changed from 'labels' to 'source_versions' to fix the duplicate ID issue
         uses: nick-fields/retry@v2
         with:
-          attempt_limit: 3
-          attempt_delay: 15000
-          command: |
-            set -eo pipefail
-            skopeo inspect docker://${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }} > source.json
-            ver=$(jq -r '.Labels["org.opencontainers.image.version"]' source.json)
-            if [ -z "$ver" ] || [ "null" = "$ver" ]; then
-              echo "inspected image version must not be empty or null"
-              exit 1
-            fi
-            echo "SOURCE_IMAGE_VERSION=$ver" >> $GITHUB_ENV
+        timeout_minutes: 5
+        max_attempts: 3
+        retry_wait_seconds: 15
+        command: |
+          set -eo pipefail
+          skopeo inspect docker://${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }} > source.json
+          ver=$(jq -r '.Labels["org.opencontainers.image.version"]' source.json)
+          if [ -z "$ver" ] || [ "null" = "$ver" ]; then
+          echo "inspected image version must not be empty or null"
+          exit 1
+          fi
+          echo "SOURCE_IMAGE_VERSION=$ver" >> $GITHUB_ENV
 
       # Generate a primary version key that appears
       # in rpm-ostree status, and github.
