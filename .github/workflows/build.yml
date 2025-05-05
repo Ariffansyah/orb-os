@@ -25,6 +25,7 @@ env:
   BASE_IMAGE_FLAVOR: "main"
   DEFAULT_TAG: "latest"
 
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
   cancel-in-progress: true
@@ -164,6 +165,13 @@ jobs:
           echo "Generated the following:"
           cat $GITHUB_OUTPUT
 
+      - name: Define extra environment variables
+        run: |
+          echo "CONTAINER_TARGET=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "SHA_HEAD_SHORT=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "FEDORA_VERSION=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
+          echo "VERSION_TAG=${{ steps.generate-version.outputs.tag }}" >> $GITHUB_ENV
+          echo "VERSION_PRETTY=${{ steps.generate-version.outputs.pretty }}" >> $GITHUB_ENV
 
       - name: Build Image
         id: build_image
