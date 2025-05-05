@@ -197,12 +197,6 @@ jobs:
         run: |
           sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
 
-      - name: Lowercase Registry
-        id: registry_case
-        uses: ASzc/change-string-case-action@v6
-        with:
-          string: ${{ env.IMAGE_REGISTRY }}
-
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
       #
