@@ -184,8 +184,6 @@ jobs:
             --build-arg BASE_IMAGE_NAME=${{ env.BASE_IMAGE_NAME }} \
             --build-arg BASE_IMAGE_FLAVOR=${{ env.BASE_IMAGE_FLAVOR }} \
             --build-arg FEDORA_VERSION=${{ env.FEDORA_MAJOR_VERSION }} \
-            --build-arg KERNEL_FLAVOR=${{ env.KERNEL_FLAVOR }} \
-            --build-arg KERNEL_VERSION=${{ env.KERNEL_VERSION }} \
             --build-arg IMAGE_BRANCH=${{ github.ref_name }} \
             --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
             --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
