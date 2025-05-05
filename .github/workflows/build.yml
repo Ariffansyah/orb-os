@@ -104,6 +104,7 @@ jobs:
       # Need to run buildah using bash if wanna work properly.
       #
       - name: Pull main, rechunk images
+        id: labels
         uses: Wandalen/wretry.action@v3.8.0
         with:
           attempt_limit: 3
