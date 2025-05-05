@@ -105,7 +105,7 @@ jobs:
       #
       - name: Pull main, rechunk images
         id: labels
-        uses: Wandalen/wretry.action@master
+        uses: Wandalen/wretry.action@e94c43bf2e865e7dbbd90b0c1061053f5888932a
         with:
           attempt_limit: 3
           attempt_delay: 15000
@@ -119,7 +119,7 @@ jobs:
 
       - name: Get source versions
         id: source_versions
-        uses: Wandalen/wretry.action@master
+        uses: Wandalen/wretry.action@e94c43bf2e865e7dbbd90b0c1061053f5888932a
         with:
           attempt_limit: 3
           attempt_delay: 15000
