@@ -24,6 +24,12 @@ COPY system /
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     git \
     vim \
@@ -53,6 +59,8 @@ COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl enable podman.socket && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_pgdev-ghostty.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-starship.repo && \
     /usr/libexec/build/image-info && \
     /usr/libexec/build/clean.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
