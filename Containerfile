@@ -113,34 +113,22 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
-# Install Valve's patched Mesa, Pipewire, Bluez, and Xwayland#
-# Install patched switcheroo control with proper discrete GPU support
-# Tempporary fix for GPU Encoding
+# Install Mesa drivers and multimedia components from Fedora repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install standard Fedora Mesa packages
     rpm-ostree install \
-    mesa-dri-drivers.i686 && \
-    mkdir -p /tmp/mesa-fix64/dri && \
-    cp /usr/lib64/libgallium-*.so /tmp/mesa-fix64/ && \
-    cp /usr/lib64/dri/kms_swrast_dri.so /tmp/mesa-fix64/dri/ && \
-    cp /usr/lib64/dri/libdril_dri.so /tmp/mesa-fix64/dri/ && \
-    cp /usr/lib64/dri/swrast_dri.so /tmp/mesa-fix64/dri/ && \
-    cp /usr/lib64/dri/virtio_gpu_dri.so /tmp/mesa-fix64/dri/ && \
-    mkdir -p /tmp/mesa-fix32/dri && \
-    cp /usr/lib/libgallium-*.so /tmp/mesa-fix32/ && \
-    cp /usr/lib/dri/kms_swrast_dri.so /tmp/mesa-fix32/dri/ && \
-    cp /usr/lib/dri/libdril_dri.so /tmp/mesa-fix32/dri/ && \
-    cp /usr/lib/dri/swrast_dri.so /tmp/mesa-fix32/dri/ && \
-    cp /usr/lib/dri/virtio_gpu_dri.so /tmp/mesa-fix32/dri/ && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:kylegospo:bazzite-multilib \
-    mesa-libxatracker \
-    mesa-libglapi \
     mesa-dri-drivers \
-    mesa-libgbm \
-    mesa-libEGL \
-    mesa-vulkan-drivers \
+    mesa-dri-drivers.i686 \
     mesa-libGL \
+    mesa-libEGL \
+    mesa-libgbm \
+    mesa-libglapi \
+    mesa-vulkan-drivers \
+    mesa-va-drivers \
+    mesa-vdpau-drivers \
+    xorg-x11-drv-libinput \
+    xorg-x11-server-Xwayland \
+    # Install PipeWire and related packages
     pipewire \
     pipewire-alsa \
     pipewire-gstreamer \
@@ -150,27 +138,20 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     pipewire-pulseaudio \
     pipewire-utils \
     pipewire-plugin-libcamera \
+    # Install Bluetooth support
     bluez \
     bluez-obexd \
     bluez-cups \
     bluez-libs \
-    xorg-x11-server-Xwayland \
-    || true && \
-    rsync -a /tmp/mesa-fix64/ /usr/lib64/ && \
-    rsync -a /tmp/mesa-fix32/ /usr/lib/ && \
-    rm -rf /tmp/mesa-fix64 && \
-    rm -rf /tmp/mesa-fix32 && \
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/rpmfusion-*.repo && \
-    rpm-ostree install \
+    # Enable RPM Fusion repos temporarily for multimedia components
+    && sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/rpmfusion-*.repo 2>/dev/null || true \
+    && rpm-ostree install \
     libbluray \
-    libbluray-utils && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:sentry:switcheroo-control_discrete \
-    switcheroo-control && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
+    libbluray-utils \
+    # Disable RPM Fusion repos again
+    && sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo 2>/dev/null || true \
+    && /usr/libexec/build/clean.sh \
+    && ostree container commit
 
 # ==========================================
 # SECTION 4: PACKAGE REMOVALS
