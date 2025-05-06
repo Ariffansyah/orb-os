@@ -97,7 +97,7 @@ jobs:
       # NOTE: It seems like prepull using wretry does not work along with redhat buildah
       # Need to run buildah using bash if wanna work properly.
       #
-      - name: Pull main, rechunk images
+      - name: Pull main images
         uses: Wandalen/wretry.action@v3.8.0
         with:
           attempt_limit: 3
@@ -108,7 +108,7 @@ jobs:
             sudo podman pull ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
 
             # Add rechunk as well to remove this source of failure
-            sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.1
+            sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.2
 
       - name: Get source versions
         id: labels
@@ -168,7 +168,7 @@ jobs:
           echo "VERSION_TAG=${{ steps.generate-version.outputs.tag }}" >> $GITHUB_ENV
           echo "VERSION_PRETTY=${{ steps.generate-version.outputs.pretty }}" >> $GITHUB_ENV
 
-      # Tag the image with multiple tags to ensure we can push them later
+      # Build the image
       - name: Build Image
         id: build_image
         run: |
@@ -203,7 +203,7 @@ jobs:
             sudo apt update
             sudo apt install sbsigntool curl openssl
           fi
-          TMP=$(sudo podman create localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} bash)
+          TMP=$(sudo podman create ${{ env.IMAGE_NAME }}:latest bash)
           
           # First check if kernel exists and find its location
           KERNEL_PATH=$(sudo podman exec $TMP find /usr/lib/modules -name "vmlinuz" 2>/dev/null || echo "")
@@ -238,32 +238,6 @@ jobs:
           sbverify --cert kernel-sign.crt vmlinuz || echo "Verification with first cert failed"
           sbverify --cert akmods.crt vmlinuz || echo "Verification with second cert failed"
 
-      # Create additional tags that will be used for pushing
-      - name: Create additional tags
-        run: |
-          # Tag with date-based tags
-          sudo podman tag ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}:latest.${{ steps.date.outputs.datenum }}
-          sudo podman tag ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.datenum }}
-          
-          # List all tags for verification
-          echo "Created the following tags:"
-          sudo podman images ${{ env.IMAGE_NAME }}
-
-      # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
-      # This does not make your image faster to download, just provides better resumability and fixes a few errors.
-      # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
-      # You can enable it by uncommenting the following lines:
-      - name: Run Rechunker
-        id: rechunk
-        uses: hhd-dev/rechunk@v1.1.3
-        with:
-          rechunk: "ghcr.io/hhd-dev/rechunk:v1.1.2"
-          ref: "localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          prev-ref: "${{ steps.registry_case.outputs.lowercase }}/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }}"
-          skip_compression: false
-          version: ${{ env.FEDORA_MAJOR_VERSION }}
-          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
-
       # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
       # https://github.com/macbre/push-to-ghcr/issues/12
       - name: Lowercase Registry
@@ -278,65 +252,89 @@ jobs:
         with:
           string: ${{ env.IMAGE_NAME }}
 
-      # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
-      # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
+      # Login to the registry before rechunk
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Use a simpler approach for pushing the image
-      # Use a simpler approach for pushing the image
-      - name: Push To GHCR
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          # List available images for debugging
-          echo "Available images:"
-          sudo podman images
-    
-          # Set up the registry path
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-    
-          # Try to tag and push with and without localhost prefix
-          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-            # Try first with the rechunked image if available
-            if sudo podman image exists localhost/${{ env.IMAGE_NAME }}:$tag; then
-              echo "Found image localhost/${{ env.IMAGE_NAME }}:$tag"
-              sudo podman tag localhost/${{ env.IMAGE_NAME }}:$tag $REGISTRY_PATH:$tag
-              sudo podman push --tls-verify=false $REGISTRY_PATH:$tag
-              echo "Pushed $REGISTRY_PATH:$tag using localhost prefix"
-            elif sudo podman image exists ${{ env.IMAGE_NAME }}:$tag; then
-              echo "Found image ${{ env.IMAGE_NAME }}:$tag"
-              sudo podman tag ${{ env.IMAGE_NAME }}:$tag $REGISTRY_PATH:$tag
-              sudo podman push --tls-verify=false $REGISTRY_PATH:$tag
-              echo "Pushed $REGISTRY_PATH:$tag"
-            else
-              # Try to find the image from the rechunker output
-              if [ "$tag" == "latest" ] && [ -n "${{ steps.rechunk.outputs.ref }}" ]; then
-                echo "Trying to use rechunk output directly: ${{ steps.rechunk.outputs.ref }}"
-                # Extract the right part of the reference
-                REF=$(echo "${{ steps.rechunk.outputs.ref }}" | sed 's|^oci:||')
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Rechunk the image
+      - name: Run Rechunker
+        id: rechunk
+        uses: hhd-dev/rechunk@v1.1.3
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          rechunk: "ghcr.io/hhd-dev/rechunk:v1.1.2"
+          ref: "${{ env.IMAGE_NAME }}:latest"
+          prev-ref: "${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest"
+          skip_compression: false
+          version: ${{ env.FEDORA_MAJOR_VERSION }}
+          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
+
+      # Push directly using podman - for non-rechunked image if rechunk failed
+      - name: Push Original Image if Rechunk Failed
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.rechunk.outcome != 'success'
+        run: |
+          echo "Rechunk step failed or was skipped, pushing original image"
           
-                if sudo podman manifest exists "${{ steps.rechunk.outputs.ref }}"; then
-                  sudo podman tag "${{ steps.rechunk.outputs.ref }}" $REGISTRY_PATH:$tag
-                  sudo podman push --tls-verify=false $REGISTRY_PATH:$tag
-                  echo "Pushed $REGISTRY_PATH:$tag using direct rechunk ref"
-                elif [ -d "$REF" ]; then
-                  # Try using skopeo to copy from OCI format directly to the registry
-                  echo "Trying skopeo copy from $REF to $REGISTRY_PATH:$tag"
-                  sudo skopeo copy --dest-tls-verify=false oci:$REF docker://$REGISTRY_PATH:$tag
-                  echo "Copied from OCI to $REGISTRY_PATH:$tag using skopeo"
-                else
-                  echo "Warning: Could not find image for tag $tag"
-                fi
-              else
-                echo "Warning: Could not find image for tag $tag"
+          # Push with different tags
+          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          
+          # Tag and push latest
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
+          sudo podman push $REGISTRY_PATH:latest
+          echo "Pushed $REGISTRY_PATH:latest"
+          
+          # Tag and push date-based tags
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
+          sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
+          echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
+          
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
+          sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
+          echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
+
+      # Push the rechunked image if rechunk succeeded
+      - name: Push Rechunked Image
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.rechunk.outcome == 'success'
+        run: |
+          echo "Rechunk step succeeded, pushing rechunked image with additional tags"
+          
+          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          RECHUNK_REF="${{ steps.rechunk.outputs.ref }}"
+          
+          # Extract image ID if it's an OCI reference
+          if [[ "$RECHUNK_REF" == oci:* ]]; then
+            echo "Converting OCI reference to container image"
+            REF_PATH=$(echo $RECHUNK_REF | sed 's|^oci:||')
+            
+            # Import the OCI directory as a container
+            if [ -d "$REF_PATH" ]; then
+              # Use a direct approach to import and tag
+              sudo podman load -i $REF_PATH/index.json
+              LOADED_ID=$(sudo podman images --format "{{.ID}}" | head -n 1)
+              if [ -n "$LOADED_ID" ]; then
+                sudo podman tag $LOADED_ID $REGISTRY_PATH:latest
               fi
             fi
-          done
+          else
+            # Direct tag if it's already a container reference
+            sudo podman tag $RECHUNK_REF $REGISTRY_PATH:latest
+          fi
+          
+          # Push latest tag first
+          sudo podman push $REGISTRY_PATH:latest
+          echo "Pushed $REGISTRY_PATH:latest"
+          
+          # Tag and push date-based tags
+          sudo podman tag $REGISTRY_PATH:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
+          sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
+          echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
+          
+          sudo podman tag $REGISTRY_PATH:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
+          sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
+          echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
+
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
       # using Cosign and save the private key as a repository secret in Github for this workflow
