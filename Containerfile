@@ -24,6 +24,181 @@ COPY system /
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=fedora \
+    libusb1 \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    vulkan-loader \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    alsa-lib \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gnutls \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glib2 \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    nspr \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    nss \
+    nss-softokn \
+    nss-softokn-freebl \
+    nss-sysinit \
+    nss-util \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    atk \
+    at-spi2-atk \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libaom \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gstreamer1 \
+    gstreamer1-plugins-base \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libdecor \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libtirpc \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libuuid \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libblkid \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libmount \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cups-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libinput \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libopenmpt \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    llvm-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    zlib-ng-compat \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    fontconfig \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    pciutils-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libdrm \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cpp \
+    libatomic \
+    libgcc \
+    libgfortran \
+    libgomp \
+    libobjc \
+    libstdc++ \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libX11 \
+    libX11-common \
+    libX11-xcb \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libv4l \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    elfutils-libelf \
+    elfutils-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glibc \
+    glibc-common \
+    glibc-all-langpacks \
+    glibc-gconv-extra \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libxcrypt \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    SDL2 \
+    || true && \
+    rpm-ostree override remove \
+    glibc32 \
+    || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     /usr/libexec/build/clean.sh && \
@@ -155,7 +330,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Configure OSTree remote for updates
     mkdir -p /etc/ostree && \
     ostree remote delete fedora-iot || true && \
-    ostree remote add --no-gpg-verify ghcr-orb-os https://ghcr.io/ariffansyah/orb-os && \
+    ostree remote add --no-gpg-verify ghcr-orb-os https://ghcr.io/Ariffansyah/orb-os && \
     echo "Configured OSTree remote for updates" && \
     # Configure rpm-ostree update behavior
     mkdir -p /etc/rpm-ostreed.conf.d/ && \
