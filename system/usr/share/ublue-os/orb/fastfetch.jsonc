@@ -9,110 +9,110 @@
       "3": "95",
       "4": "0",
       "5": "8",
-      "6": "55",
-    },
+      "6": "55"
+    }
   },
   "display": {
-    "separator": "  ",
+    "separator": "  ",
     "color": {
-      "keys": "light_blue",
-    },
+      "keys": "light_blue"
+    }
   },
   "modules": [
     {
       "type": "title",
-      "key": " ",
+      "key": " ",
       "color": {
         "user": "light_blue",
         "at": "white",
-        "host": "magenta",
-      },
+        "host": "magenta"
+      }
     },
     "break",
     {
       "type": "command",
       "key": " 󱋩",
-      "text": "/usr/libexec/bazzite-fetch-image",
+      "text": "/usr/libexec/bazzite-fetch-image"
     },
     {
       "type": "os",
       "key": " 󰣛",
-      "format": "{pretty-name}",
+      "format": "{pretty-name}"
     },
     {
       "type": "kernel",
-      "key": " ",
-      "format": "{1} {2}",
+      "key": " ",
+      "format": "{1} {2}"
     },
     {
       "type": "uptime",
-      "key": " 󰅐",
+      "key": " 󰅐"
     },
     {
       "type": "command",
       "key": " 󰔠",
       "text": "date -d$(ls -alct / --time-style=full-iso|tail -1|awk '{print $6}') +'Spawned on %b %d %G'",
-      "shell": "/usr/bin/bash",
+      "shell": "/usr/bin/bash"
     },
     "break",
     {
       "type": "host",
-      "key": " 󰾰",
+      "key": " 󰾰"
     },
     {
       "type": "cpu",
-      "key": " 󰻠",
+      "key": " 󰻠"
     },
     {
       "type": "gpu",
-      "key": " 󰍛",
+      "key": " 󰍛"
     },
     {
       "type": "memory",
-      "key": " ",
+      "key": " "
     },
     {
       "type": "disk",
-      "key": " ",
+      "key": " "
     },
     {
       "type": "display",
-      "key": " 󰍹",
+      "key": " 󰍹"
     },
     {
       "type": "battery",
-      "key": " ",
+      "key": " "
     },
     {
       "type": "gamepad",
-      "key": " 󰖺",
+      "key": " 󰖺"
     },
     "break",
     {
       "type": "de",
-      "key": " 󰕮",
+      "key": " 󰕮"
     },
     {
       "type": "wm",
-      "key": " ",
+      "key": " "
     },
     {
       "type": "shell",
-      "key": " ",
+      "key": " "
     },
     {
       "type": "terminal",
-      "key": " ",
+      "key": " "
     },
     {
       "type": "packages",
-      "key": " 󰏖",
+      "key": " 󰏖"
     },
     "break",
     {
       "type": "colors",
       "paddingLeft": 2,
-      "symbol": "circle",
-    },
-  ],
+      "symbol": "circle"
+    }
+  ]
 }
