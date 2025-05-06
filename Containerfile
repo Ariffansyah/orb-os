@@ -154,19 +154,19 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Install COSMIC desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install COSMIC desktop
-    rpm-ostree install cosmic-desktop && \
-    # Install additional desktop utilities
+    rpm-ostree install \
+    cosmic-desktop && \
+    # Install gnome-software and gnome-disks
     rpm-ostree install \
     gnome-software \
     gnome-disk-utility \
     gparted \
     gnome-keyring NetworkManager-tui \
     NetworkManager-openvpn && \
-    # Remove cosmic-store (we use gnome-software instead)
+    # We remove cosmic-store and replace it with gnome-software for better functionality
     rpm-ostree remove \
     cosmic-store || true && \
-    /usr/libexec/build/clean.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -234,57 +234,56 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Set default hostname to orb
-    echo "orb" > /etc/hostname && \
-    chmod 644 /etc/hostname && \
-    # Ensure COSMIC is the default desktop environment
-    systemctl set-default graphical.target && \
     # Service management
     systemctl enable lactd || true && \
-    systemctl disable gdm.service gdm.socket || true && \
-    systemctl disable sddm.service sddm.socket || true && \
-    # Create a dropin config to ensure cosmic-greeter starts after the graphical target is reached
-    mkdir -p /etc/systemd/system/cosmic-greeter.service.d && \
-    echo -e "[Unit]\nAfter=graphical.target\nConflicts=gdm.service sddm.service\nWants=graphical.target" > /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
-    echo -e "[Service]\nRestart=always\nRestartSec=1\n" >> /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
-    systemctl enable cosmic-greeter.service && \
+    systemctl disable gdm || true && \
+    systemctl disable sddm || true && \
+    systemctl enable cosmic-greeter && \
     systemctl enable brew-dir-fix.service && \
     systemctl enable brew-setup.service && \
     systemctl disable brew-upgrade.timer && \
     systemctl disable brew-update.timer && \
-    systemctl disable waydroid-container.service || true && \
+    systemctl disable waydroid-container.service && \
     systemctl --global enable podman.socket && \
-    # Add configuration files and utilities
+    # Adding good stuff
     curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
-    curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh || true && \
-    chmod +x /usr/bin/waydroid-choose-gpu || true && \
+    curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh && \
+    chmod +x /usr/bin/waydroid-choose-gpu && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
-    curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
-    curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Configure OSTree remote for updates - verified correct format
-    mkdir -p /etc/ostree && \
-    ostree remote delete fedora-iot || true && \
-    ostree remote delete ghcr-orb-os || true && \
-    ostree remote add --no-gpg-verify ghcr-orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest && \
-    echo "Configured OSTree remote for updates with ostree-unverified-registry prefix" && \
-    # Configure rpm-ostree update behavior
-    mkdir -p /etc/rpm-ostreed.conf.d/ && \
-    echo -e "[Daemon]\nAutomaticUpdatePolicy=check" > /etc/rpm-ostreed.conf.d/automatic-updates.conf && \
-    # Disable COPR repositories to speed up syncing
-    sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
-    # Disable other repositories for faster sync
-    for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
-    if [ -f "/etc/yum.repos.d/$repo" ]; then \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
-    fi \
-    done && \
-    # Setup Flatpak
+    curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini && \
+    curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini && \
+    # Disabling copr for faster sync
+    sed -i 's/stage/none/g' /etc/rpm-ostreed.conf && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-staging.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-latencyflex.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-obs-vkcapture.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ycollet-audinux.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-rom-properties.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-webapp-manager.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hhd-dev-hhd.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_che-nerd-fonts.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_mavit-discover-overlay.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_lizardbyte-beta.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hikariknight-looking-glass-kvmfr.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_pgdev-ghostty.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-starship.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_alebastr-sway-extras.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/tailscale.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/charm.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-steam.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-rar.repo && \
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Finishing up
-    if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
-    if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
+    # Finishing stuff
+    /usr/libexec/build/image-info && \
     /usr/libexec/build/clean.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
