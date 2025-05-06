@@ -269,17 +269,48 @@ jobs:
           labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
 
       # We need to retag after rechunk since it may create a new image
+      # We need to retag after rechunk since it may create a new image
       - name: Retag after rechunk
         run: |
-          # Tag the rechunked image with all our tags
-          for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-            sudo podman tag ${{ steps.rechunk.outputs.ref }} localhost/${{ env.IMAGE_NAME }}:$tag
-          done
-          
-          # List all tags for verification
-          echo "Created the following tags after rechunk:"
-          sudo podman images localhost/${{ env.IMAGE_NAME }}
-
+          # Display the rechunk reference for debugging
+          echo "Rechunk output reference: ${{ steps.rechunk.outputs.ref }}"
+    
+          # Extract the image ID from the reference
+          IMAGE_ID=$(sudo podman inspect --format '{{.Id}}' ${{ steps.rechunk.outputs.ref }} 2>/dev/null)
+    
+          if [ -n "$IMAGE_ID" ]; then
+          echo "Found image ID: $IMAGE_ID"
+      
+           # Tag using the image ID
+            for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+              sudo podman tag $IMAGE_ID localhost/${{ env.IMAGE_NAME }}:$tag
+              echo "Tagged $IMAGE_ID as localhost/${{ env.IMAGE_NAME }}:$tag"
+            done
+          else
+            echo "Warning: Could not find the rechunked image. Trying direct tagging..."
+      
+            # Fall back to direct tagging if the inspect failed
+            REF_PATH=$(echo ${{ steps.rechunk.outputs.ref }} | sed 's|^oci:||')
+      
+            if [ -n "$REF_PATH" ] && [ -d "$REF_PATH" ]; then
+              # Try to import from the OCI directory
+              for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+                sudo skopeo copy oci:$REF_PATH docker-daemon:localhost/${{ env.IMAGE_NAME }}:$tag
+                echo "Copied from OCI to localhost/${{ env.IMAGE_NAME }}:$tag using skopeo"
+              done
+            else
+              echo "Warning: Could not tag rechunked image. Will proceed with original image."
+              # Use the original image instead
+              for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+                sudo podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
+                echo "Tagged original image as localhost/${{ env.IMAGE_NAME }}:$tag"
+            done
+          fi
+        fi
+    
+    # List all tags for verification
+    echo "Created the following tags after rechunk:"
+    sudo podman images localhost/${{ env.IMAGE_NAME }}
       - name: Generate tags
         id: generate-tags
         shell: bash
