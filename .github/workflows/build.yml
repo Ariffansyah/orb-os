@@ -169,13 +169,10 @@ jobs:
           echo "VERSION_PRETTY=${{ steps.generate-version.outputs.pretty }}" >> $GITHUB_ENV
 
       # Tag the image with multiple tags to ensure we can push them later
-      - name: Build Image with Multiple Tags
+      - name: Build Image
         id: build_image
         run: |
-          # Create a variable with all the tags we want to use
-          TAGS_LIST="${{ env.DEFAULT_TAG }} latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}"
-          
-          # Build the main image with the first tag
+          # Build the main image
           sudo buildah build \
           --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }} \
           --build-arg IMAGE_FLAVOR=${{ env.IMAGE_FLAVOR }} \
@@ -187,19 +184,7 @@ jobs:
           --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
           --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
-          --tag ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} .
-          
-          # Tag the image with additional tags
-          for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-            sudo podman tag ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} ${{ env.IMAGE_NAME }}:$tag
-          done
-          
-          # List all tags for verification
-          echo "Created the following tags:"
-          sudo podman images ${{ env.IMAGE_NAME }}
-          
-          # Save the list of tags for later use
-          echo "TAGS_LIST=$TAGS_LIST" >> $GITHUB_ENV
+          --tag ${{ env.IMAGE_NAME }}:latest .
 
       # Deleting unused images after build
       - name: Remove auxiliary images
@@ -253,6 +238,17 @@ jobs:
           sbverify --cert kernel-sign.crt vmlinuz || echo "Verification with first cert failed"
           sbverify --cert akmods.crt vmlinuz || echo "Verification with second cert failed"
 
+      # Create additional tags that will be used for pushing
+      - name: Create additional tags
+        run: |
+          # Tag with date-based tags
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}:latest.${{ steps.date.outputs.datenum }}
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.datenum }}
+          
+          # List all tags for verification
+          echo "Created the following tags:"
+          sudo podman images ${{ env.IMAGE_NAME }}
+
       # Rechunk is a script that we use on Universal Blue to make sure there isnt a single huge layer when your image gets published.
       # This does not make your image faster to download, just provides better resumability and fixes a few errors.
       # Documentation for Rechunk is provided on their github repository at https://github.com/hhd-dev/rechunk
@@ -268,117 +264,6 @@ jobs:
           version: ${{ env.FEDORA_MAJOR_VERSION }}
           labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
 
-      # We need to retag after rechunk since it may create a new image
-      # We need to retag after rechunk since it may create a new image
-      - name: Retag after rechunk
-        run: |
-          # Display the rechunk reference for debugging
-          echo "Rechunk output reference: ${{ steps.rechunk.outputs.ref }}"
-    
-          # Extract the image ID from the reference
-          IMAGE_ID=$(sudo podman inspect --format '{{.Id}}' ${{ steps.rechunk.outputs.ref }} 2>/dev/null)
-    
-          if [ -n "$IMAGE_ID" ]; then
-            echo "Found image ID: $IMAGE_ID"
-      
-           # Tag using the image ID
-            for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-              sudo podman tag $IMAGE_ID localhost/${{ env.IMAGE_NAME }}:$tag
-              echo "Tagged $IMAGE_ID as localhost/${{ env.IMAGE_NAME }}:$tag"
-            done
-          else
-            echo "Warning: Could not find the rechunked image. Trying direct tagging..."
-      
-            # Fall back to direct tagging if the inspect failed
-            REF_PATH=$(echo ${{ steps.rechunk.outputs.ref }} | sed 's|^oci:||')
-      
-            if [ -n "$REF_PATH" ] && [ -d "$REF_PATH" ]; then
-              # Try to import from the OCI directory
-              for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-                sudo skopeo copy oci:$REF_PATH docker-daemon:localhost/${{ env.IMAGE_NAME }}:$tag
-                echo "Copied from OCI to localhost/${{ env.IMAGE_NAME }}:$tag using skopeo"
-              done
-            else
-              echo "Warning: Could not tag rechunked image. Will proceed with original image."
-              # Use the original image instead
-              for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-                sudo podman tag localhost/${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} localhost/${{ env.IMAGE_NAME }}:$tag
-                echo "Tagged original image as localhost/${{ env.IMAGE_NAME }}:$tag"
-            done
-          fi
-        fi
-    
-    # List all tags for verification
-    echo "Created the following tags after rechunk:"
-    sudo podman images localhost/${{ env.IMAGE_NAME }}
-      - name: Generate tags
-        id: generate-tags
-        shell: bash
-        run: |
-          # Common vars for generating tags
-          VERSION_TAG="${{ steps.rechunk.outputs.version }}"
-          UPSTREAM_TAG="${{ env.SOURCE_IMAGE_VERSION }}"
-          FEDORA_VERSION="${{ env.FEDORA_VERSION }}"
-          SHA_SHORT="${GITHUB_SHA::7}"
-          BUILD_TAGS=( "${VERSION_TAG}" )
-
-          # Use latest var to check if we should tag as latest
-          unset LATEST
-          if [[ "${{ env.IS_STABLE_VERSION }}" == "true" ]]; then
-                LATEST="1"
-          fi
-
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # Track latest ver per PR
-            if [ -n "$LATEST" ]; then
-                BUILD_TAGS+=("pr-${{ github.event.pull_request.number }}")
-            fi
-          elif [[ ${{ github.ref_name }} == "unstable" ]]; then
-            # Per fedora version
-            BUILD_TAGS+=("${FEDORA_VERSION}-unstable")
-            BUILD_TAGS+=("unstable-${FEDORA_VERSION}") # flip ver to be last
-
-            if [ -n "$LATEST" ]; then
-                BUILD_TAGS+=("unstable")
-            fi
-          elif [[ ${{ github.ref_name }} == "testing" ]]; then
-            # Per fedora version
-            BUILD_TAGS+=("${FEDORA_VERSION}-testing")
-            BUILD_TAGS+=("testing-${FEDORA_VERSION}") # flip ver to be last
-
-            if [ -n "$LATEST" ]; then
-                BUILD_TAGS+=("testing")
-            fi
-          else
-            BUILD_TAGS+=("${FEDORA_VERSION}")
-            BUILD_TAGS+=("stable-${VERSION_TAG}")
-
-            # Per fedora version
-            BUILD_TAGS+=("${FEDORA_VERSION}-stable")
-            BUILD_TAGS+=("stable-${FEDORA_VERSION}") # flip ver to be last
-
-            if [ -n "$LATEST" ]; then
-              BUILD_TAGS+=("latest" "stable")
-            fi
-          fi
-
-          echo "Generated the following build tags: "
-          for TAG in "${BUILD_TAGS[@]}"; do
-              echo "${TAG}"
-          done
-          echo "alias_tags=${BUILD_TAGS[*]}" >> $GITHUB_OUTPUT
-
-
-      # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
-      # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
       # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
       # https://github.com/macbre/push-to-ghcr/issues/12
       - name: Lowercase Registry
@@ -393,22 +278,51 @@ jobs:
         with:
           string: ${{ env.IMAGE_NAME }}
 
+      # These `if` statements are so that pull requests for your custom images do not make it publish any packages under your name without you knowing
+      # They also check if the runner is on the default branch so that things like the merge queue (if you enable it), are going to work
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       # Use a simpler approach for pushing the image
       - name: Push To GHCR
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          # Login to the registry
-          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+          # Use the rechunked image
+          RECHUNK_IMAGE=$(echo "${{ steps.rechunk.outputs.ref }}" | sed 's|^oci:||')
           
-          # Push each tag
-          for tag in ${{ env.DEFAULT_TAG }} latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-            # Tag with the registry path
-            sudo podman tag localhost/${{ env.IMAGE_NAME }}:$tag ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:$tag
+          # Push directly with podman
+          if [ -n "$RECHUNK_IMAGE" ]; then
+            echo "Using rechunked image at $RECHUNK_IMAGE"
             
-            # Push to registry
-            sudo podman push ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:$tag
-            echo "Pushed tag: $tag"
-          done
+            # Push latest tag
+            sudo podman push --tls-verify=false localhost/${{ env.IMAGE_NAME }}:latest ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest
+            echo "Pushed latest tag"
+            
+            # Push date-based tags 
+            sudo podman push --tls-verify=false localhost/${{ env.IMAGE_NAME }}:latest.${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest.${{ steps.date.outputs.datenum }}
+            echo "Pushed latest.${{ steps.date.outputs.datenum }} tag"
+            
+            sudo podman push --tls-verify=false localhost/${{ env.IMAGE_NAME }}:${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:${{ steps.date.outputs.datenum }}
+            echo "Pushed ${{ steps.date.outputs.datenum }} tag"
+          else
+            echo "Warning: Rechunk output not found, using original image"
+            
+            # Push latest tag
+            sudo podman push --tls-verify=false ${{ env.IMAGE_NAME }}:latest ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest
+            echo "Pushed latest tag"
+            
+            # Push date-based tags
+            sudo podman push --tls-verify=false ${{ env.IMAGE_NAME }}:latest.${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest.${{ steps.date.outputs.datenum }}
+            echo "Pushed latest.${{ steps.date.outputs.datenum }} tag"
+            
+            sudo podman push --tls-verify=false ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:${{ steps.date.outputs.datenum }}
+            echo "Pushed ${{ steps.date.outputs.datenum }} tag"
+          fi
 
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
@@ -422,7 +336,7 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           IMAGE_FULL="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          for tag in ${{ env.DEFAULT_TAG }} latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
             cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
           done
         env:
