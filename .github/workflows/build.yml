@@ -289,41 +289,54 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Use a simpler approach for pushing the image
+      # Use a simpler approach for pushing the image
       - name: Push To GHCR
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          # Use the rechunked image
-          RECHUNK_IMAGE=$(echo "${{ steps.rechunk.outputs.ref }}" | sed 's|^oci:||')
+          # List available images for debugging
+          echo "Available images:"
+          sudo podman images
+    
+          # Set up the registry path
+          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+    
+          # Try to tag and push with and without localhost prefix
+          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+            # Try first with the rechunked image if available
+            if sudo podman image exists localhost/${{ env.IMAGE_NAME }}:$tag; then
+              echo "Found image localhost/${{ env.IMAGE_NAME }}:$tag"
+              sudo podman tag localhost/${{ env.IMAGE_NAME }}:$tag $REGISTRY_PATH:$tag
+              sudo podman push --tls-verify=false $REGISTRY_PATH:$tag
+              echo "Pushed $REGISTRY_PATH:$tag using localhost prefix"
+            elif sudo podman image exists ${{ env.IMAGE_NAME }}:$tag; then
+              echo "Found image ${{ env.IMAGE_NAME }}:$tag"
+              sudo podman tag ${{ env.IMAGE_NAME }}:$tag $REGISTRY_PATH:$tag
+              sudo podman push --tls-verify=false $REGISTRY_PATH:$tag
+              echo "Pushed $REGISTRY_PATH:$tag"
+            else
+              # Try to find the image from the rechunker output
+              if [ "$tag" == "latest" ] && [ -n "${{ steps.rechunk.outputs.ref }}" ]; then
+                echo "Trying to use rechunk output directly: ${{ steps.rechunk.outputs.ref }}"
+                # Extract the right part of the reference
+                REF=$(echo "${{ steps.rechunk.outputs.ref }}" | sed 's|^oci:||')
           
-          # Push directly with podman
-          if [ -n "$RECHUNK_IMAGE" ]; then
-            echo "Using rechunked image at $RECHUNK_IMAGE"
-            
-            # Push latest tag
-            sudo podman push --tls-verify=false localhost/${{ env.IMAGE_NAME }}:latest ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest
-            echo "Pushed latest tag"
-            
-            # Push date-based tags 
-            sudo podman push --tls-verify=false localhost/${{ env.IMAGE_NAME }}:latest.${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest.${{ steps.date.outputs.datenum }}
-            echo "Pushed latest.${{ steps.date.outputs.datenum }} tag"
-            
-            sudo podman push --tls-verify=false localhost/${{ env.IMAGE_NAME }}:${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:${{ steps.date.outputs.datenum }}
-            echo "Pushed ${{ steps.date.outputs.datenum }} tag"
-          else
-            echo "Warning: Rechunk output not found, using original image"
-            
-            # Push latest tag
-            sudo podman push --tls-verify=false ${{ env.IMAGE_NAME }}:latest ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest
-            echo "Pushed latest tag"
-            
-            # Push date-based tags
-            sudo podman push --tls-verify=false ${{ env.IMAGE_NAME }}:latest.${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest.${{ steps.date.outputs.datenum }}
-            echo "Pushed latest.${{ steps.date.outputs.datenum }} tag"
-            
-            sudo podman push --tls-verify=false ${{ env.IMAGE_NAME }}:${{ steps.date.outputs.datenum }} ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:${{ steps.date.outputs.datenum }}
-            echo "Pushed ${{ steps.date.outputs.datenum }} tag"
-          fi
-
+                if sudo podman manifest exists "${{ steps.rechunk.outputs.ref }}"; then
+                  sudo podman tag "${{ steps.rechunk.outputs.ref }}" $REGISTRY_PATH:$tag
+                  sudo podman push --tls-verify=false $REGISTRY_PATH:$tag
+                  echo "Pushed $REGISTRY_PATH:$tag using direct rechunk ref"
+                elif [ -d "$REF" ]; then
+                  # Try using skopeo to copy from OCI format directly to the registry
+                  echo "Trying skopeo copy from $REF to $REGISTRY_PATH:$tag"
+                  sudo skopeo copy --dest-tls-verify=false oci:$REF docker://$REGISTRY_PATH:$tag
+                  echo "Copied from OCI to $REGISTRY_PATH:$tag using skopeo"
+                else
+                  echo "Warning: Could not find image for tag $tag"
+                fi
+              else
+                echo "Warning: Could not find image for tag $tag"
+              fi
+            fi
+          done
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
       # using Cosign and save the private key as a repository secret in Github for this workflow
