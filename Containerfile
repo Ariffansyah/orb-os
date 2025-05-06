@@ -213,22 +213,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
-# Fix fastfetch configuration and symlinks
-RUN mkdir -p /usr/share/ublue-os/orb/ && \
-    # Create symbolic link so fastfetch can find the configuration
-    ln -sf /usr/share/ublue-os/orb /usr/share/ublue-os/stellarite && \
-    # Create a basic fastfetch config
-    echo '{\n  "logo": "orb",\n  "color": "blue",\n  "style": "classic"\n}' > /usr/share/ublue-os/orb/fastfetch.jsonc && \
-    # Create symlinks if needed
-    if [ ! -f /usr/bin/fastfetch ] && [ -f /usr/bin/fastfetch-bin ]; then \
-    ln -s /usr/bin/fastfetch-bin /usr/bin/fastfetch; \
-    fi && \
-    # Fix the shebang line if it's incorrect
-    if [ -f /usr/libexec/fancy-fastfetch ]; then \
-    sed -i '1s|.*|#!/usr/bin/env bash|' /usr/libexec/fancy-fastfetch; \
-    fi && \
-    chmod 644 /usr/share/ublue-os/orb/fastfetch.jsonc
-
 # ==========================================
 # SECTION 10: NEOVIM INSTALLATION
 # ==========================================
@@ -272,7 +256,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     mkdir -p /etc/ostree && \
     ostree remote delete fedora-iot || true && \
     ostree remote delete ghcr-orb-os || true && \
-    ostree remote add --no-gpg-verify ghcr-orb-os https://ghcr.io/ariffansyah/orb-os:latest && \
+    ostree remote add --no-gpg-verify ghcr-orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest && \
     echo "Configured OSTree remote for updates" && \
     # Configure rpm-ostree update behavior
     mkdir -p /etc/rpm-ostreed.conf.d/ && \
