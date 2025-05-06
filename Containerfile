@@ -295,24 +295,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
-# Add after one of your RUN blocks, preferably after the fastfetch installation
-RUN mkdir -p /usr/share/ublue-os/orb/ && \
-    # Create symbolic link so fastfetch can find the configuration
-    ln -sf /usr/share/ublue-os/orb /usr/share/ublue-os/stellarite && \
-    # Create a basic fastfetch config if none exists
-    if [ ! -f /usr/share/ublue-os/orb/fastfetch.jsonc ]; then \
-    echo '{\n  "logo": "orb",\n  "color": "blue",\n  "style": "classic"\n}' > /usr/share/ublue-os/orb/fastfetch.jsonc; \
-    fi && \
-    # If the fastfetch command takes a config option, create a wrapper script
-    if grep -q 'config' "$(which fastfetch)" 2>/dev/null; then \
-    if [ ! -f /usr/bin/fastfetch-original ]; then \
-    mv /usr/bin/fastfetch /usr/bin/fastfetch-original && \
-    echo '#!/bin/bash\n/usr/bin/fastfetch-original --config /usr/share/ublue-os/orb/fastfetch.jsonc "$@"' > /usr/bin/fastfetch && \
-    chmod +x /usr/bin/fastfetch; \
-    fi \
-    fi && \
-    chmod 644 /usr/share/ublue-os/orb/fastfetch.jsonc || true
-
 # Add this after line 287 in a separate RUN block to ensure fastfetch is installed correctly
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Ensure fastfetch is properly installed from the main Fedora repositories
