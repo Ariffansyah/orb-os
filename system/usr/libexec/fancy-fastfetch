@@ -1,4 +1,4 @@
-e!/usr/bin/env bash
+#!/usr/bin/env bash
 
 THEME=$(gsettings get org.gnome.desktop.interface accent-color || echo "'purple'")
 THEME=${THEME//\'/}
