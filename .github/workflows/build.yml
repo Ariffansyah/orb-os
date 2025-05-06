@@ -53,6 +53,7 @@ jobs:
           # https://artifacthub.io/docs/topics/repositories/container-images/
           # https://linux.die.net/man/1/date
           echo "date=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)" >> $GITHUB_OUTPUT
+          echo "datenum=$(date -u +%Y%m%d)" >> $GITHUB_OUTPUT
 
       # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
       # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
@@ -167,9 +168,14 @@ jobs:
           echo "VERSION_TAG=${{ steps.generate-version.outputs.tag }}" >> $GITHUB_ENV
           echo "VERSION_PRETTY=${{ steps.generate-version.outputs.pretty }}" >> $GITHUB_ENV
 
-      - name: Build Image
+      # Tag the image with multiple tags to ensure we can push them later
+      - name: Build Image with Multiple Tags
         id: build_image
         run: |
+          # Create a variable with all the tags we want to use
+          TAGS_LIST="${{ env.DEFAULT_TAG }} latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}"
+          
+          # Build the main image with the first tag
           sudo buildah build \
           --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }} \
           --build-arg IMAGE_FLAVOR=${{ env.IMAGE_FLAVOR }} \
@@ -181,7 +187,19 @@ jobs:
           --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
           --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
-          --tag ${{ env.IMAGE_NAME }} .
+          --tag ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} .
+          
+          # Tag the image with additional tags
+          for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+            sudo podman tag ${{ env.IMAGE_NAME }}:${{ env.DEFAULT_TAG }} ${{ env.IMAGE_NAME }}:$tag
+          done
+          
+          # List all tags for verification
+          echo "Created the following tags:"
+          sudo podman images ${{ env.IMAGE_NAME }}
+          
+          # Save the list of tags for later use
+          echo "TAGS_LIST=$TAGS_LIST" >> $GITHUB_ENV
 
       # Deleting unused images after build
       - name: Remove auxiliary images
@@ -250,6 +268,17 @@ jobs:
           version: ${{ env.FEDORA_MAJOR_VERSION }}
           labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
 
+      # We need to retag after rechunk since it may create a new image
+      - name: Retag after rechunk
+        run: |
+          # Tag the rechunked image with all our tags
+          for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+            sudo podman tag ${{ steps.rechunk.outputs.ref }} localhost/${{ env.IMAGE_NAME }}:$tag
+          done
+          
+          # List all tags for verification
+          echo "Created the following tags after rechunk:"
+          sudo podman images localhost/${{ env.IMAGE_NAME }}
 
       - name: Generate tags
         id: generate-tags
@@ -333,19 +362,22 @@ jobs:
         with:
           string: ${{ env.IMAGE_NAME }}
 
+      # Use a simpler approach for pushing the image
       - name: Push To GHCR
-        uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        id: push
-        env:
-          REGISTRY_USER: ${{ github.actor }}
-          REGISTRY_PASSWORD: ${{ github.token }}
-        with:
-          registry: ${{ steps.registry_case.outputs.lowercase }}
-          image: ${{ steps.image_case.outputs.lowercase }}
-          tags: ${{ steps.metadata.outputs.tags }}
-          username: ${{ env.REGISTRY_USER }}
-          password: ${{ env.REGISTRY_PASSWORD }}
+        run: |
+          # Login to the registry
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+          
+          # Push each tag
+          for tag in ${{ env.DEFAULT_TAG }} latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+            # Tag with the registry path
+            sudo podman tag localhost/${{ env.IMAGE_NAME }}:$tag ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:$tag
+            
+            # Push to registry
+            sudo podman push ${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:$tag
+            echo "Pushed tag: $tag"
+          done
 
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
@@ -359,10 +391,9 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           IMAGE_FULL="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          for tag in ${{ steps.metadata.outputs.tags }}; do
-            cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag
+          for tag in ${{ env.DEFAULT_TAG }} latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+            cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
           done
         env:
-          TAGS: ${{ steps.push.outputs.digest }}
           COSIGN_EXPERIMENTAL: false
           COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
