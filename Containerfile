@@ -24,6 +24,222 @@ COPY system /
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=fedora \
+    libusb1 \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    vulkan-loader \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    alsa-lib \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gnutls \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glib2 \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    nspr \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    nss \
+    nss-softokn \
+    nss-softokn-freebl \
+    nss-sysinit \
+    nss-util \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    atk \
+    at-spi2-atk \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libaom \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gstreamer1 \
+    gstreamer1-plugins-base \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libdecor \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libtirpc \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libuuid \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libblkid \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libmount \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cups-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libinput \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libopenmpt \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    llvm-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    zlib-ng-compat \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    fontconfig \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    pciutils-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libdrm \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cpp \
+    libatomic \
+    libgcc \
+    libgfortran \
+    libgomp \
+    libobjc \
+    libstdc++ \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libX11 \
+    libX11-common \
+    libX11-xcb \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libv4l \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    elfutils-libelf \
+    elfutils-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glibc \
+    glibc-common \
+    glibc-all-langpacks \
+    glibc-gconv-extra \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libxcrypt \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    SDL2 \
+    || true && \
+    rpm-ostree override remove \
+    glibc32 \
+    || true && \
+    /usr/libexec/build/cleanup.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    if [[ "${FEDORA_MAJOR_VERSION}" == "rawhide" ]]; then \
+    curl -Lo /etc/yum.repos.d/_copr_ryanabx-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/ryanabx/cosmic-epoch/repo/fedora-rawhide/ryanabx-cosmic-epoch-fedora-rawhide.repo \
+    ; else curl -Lo /etc/yum.repos.d/_copr_ryanabx-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/ryanabx/cosmic-epoch/repo/fedora-$(rpm -E %fedora)/ryanabx-cosmic-epoch-fedora-$(rpm -E %fedora).repo \
+    ; fi && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-bazzite.repo https://copr.fedorainfracloud.org/coprs/kylegospo/bazzite/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-bazzite-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo https://copr.fedorainfracloud.org/coprs/kylegospo/bazzite-multilib/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-bazzite-multilib-fedora-"${FEDORA_MAJOR_VERSION}".repo?arch=x86_64 && \
+    curl -Lo /etc/yum.repos.d/_copr_ublue-os-staging.repo https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-"${FEDORA_MAJOR_VERSION}"/ublue-os-staging-fedora-"${FEDORA_MAJOR_VERSION}".repo?arch=x86_64 && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-latencyflex.repo https://copr.fedorainfracloud.org/coprs/kylegospo/LatencyFleX/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-LatencyFleX-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-obs-vkcapture.repo https://copr.fedorainfracloud.org/coprs/kylegospo/obs-vkcapture/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-obs-vkcapture-fedora-"${FEDORA_MAJOR_VERSION}".repo?arch=x86_64 && \
+    curl -Lo /etc/yum.repos.d/_copr_ycollet-audinux.repo https://copr.fedorainfracloud.org/coprs/ycollet/audinux/repo/fedora-"${FEDORA_MAJOR_VERSION}"/ycollet-audinux-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-rom-properties.repo https://copr.fedorainfracloud.org/coprs/kylegospo/rom-properties/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-rom-properties-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-webapp-manager.repo https://copr.fedorainfracloud.org/coprs/kylegospo/webapp-manager/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-webapp-manager-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_hhd-dev-hhd.repo https://copr.fedorainfracloud.org/coprs/hhd-dev/hhd/repo/fedora-"${FEDORA_MAJOR_VERSION}"/hhd-dev-hhd-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_che-nerd-fonts.repo https://copr.fedorainfracloud.org/coprs/che/nerd-fonts/repo/fedora-"${FEDORA_MAJOR_VERSION}"/che-nerd-fonts-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo https://copr.fedorainfracloud.org/coprs/sentry/switcheroo-control_discrete/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sentry-switcheroo-control_discrete-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_hikariknight-looking-glass-kvmfr.repo https://copr.fedorainfracloud.org/coprs/hikariknight/looking-glass-kvmfr/repo/fedora-"${FEDORA_MAJOR_VERSION}"/hikariknight-looking-glass-kvmfr-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_mavit-discover-overlay.repo https://copr.fedorainfracloud.org/coprs/mavit/discover-overlay/repo/fedora-"${FEDORA_MAJOR_VERSION}"/mavit-discover-overlay-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_lizardbyte-beta.repo https://copr.fedorainfracloud.org/coprs/lizardbyte/beta/repo/fedora-"${FEDORA_MAJOR_VERSION}"/lizardbyte-beta-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_rok-cdemu.repo https://copr.fedorainfracloud.org/coprs/rok/cdemu/repo/fedora-"${FEDORA_MAJOR_VERSION}"/rok-cdemu-fedora-"${FEDORA_MAJOR_VERSION}".rep && \
+    curl -Lo /etc/yum.repos.d/_copr_rodoma92-rmlint.repo https://copr.fedorainfracloud.org/coprs/rodoma92/rmlint/repo/fedora-"${FEDORA_MAJOR_VERSION}"/rodoma92-rmlint-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_ilyaz-lact.repo https://copr.fedorainfracloud.org/coprs/ilyaz/LACT/repo/fedora-"${FEDORA_MAJOR_VERSION}"/ilyaz-LACT-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_sneexy-zen-browser.repo https://copr.fedorainfracloud.org/coprs/sneexy/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sneexy-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo https://copr.fedorainfracloud.org/coprs/trs-sod/swaylock-effects/repo/fedora-"${FEDORA_MAJOR_VERSION}"/trs-sod-swaylock-effects-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_alebastr-sway-extras.repo https://copr.fedorainfracloud.org/coprs/alebastr/sway-extras/repo/fedora-"${FEDORA_MAJOR_VERSION}"/alebastr-sway-extras-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo https://copr.fedorainfracloud.org/coprs/aeiro/nwg-shell/repo/fedora-"${FEDORA_MAJOR_VERSION}"/aeiro-nwg-shell-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo https://copr.fedorainfracloud.org/coprs/atim/heroic-games-launcher/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-heroic-games-launcher-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/zsh-autosuggest.repo https://download.opensuse.org/repositories/shells:zsh-users:zsh-autosuggestions/Fedora_Rawhide/shells:zsh-users:zsh-autosuggestions.repo && \
+    curl -fsSl https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo | tee /etc/yum.repos.d/cloudflare-warp.repo && \
+    curl -Lo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo && \
+    sed -i 's@gpgcheck=1@gpgcheck=0@g' /etc/yum.repos.d/tailscale.repo && \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
+    curl -Lo /etc/yum.repos.d/negativo17-fedora-steam.repo https://negativo17.org/repos/fedora-steam.repo && \
+    curl -Lo /etc/yum.repos.d/negativo17-fedora-rar.repo https://negativo17.org/repos/fedora-rar.repo && \
+    /usr/libexec/build/cleanup.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     /usr/libexec/build/clean.sh && \
@@ -42,15 +258,104 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    gcc \
-    make \
-    ripgrep \
-    fd-find \
+    --mount=type=bind,from=akmods,src=/rpms,dst=/tmp/akmods-rpms \
+    --mount=type=bind,from=akmods-extra,src=/rpms,dst=/tmp/akmods-extra-rpms \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
+    rpm-ostree install \
+    /tmp/akmods-rpms/kmods/*kvmfr*.rpm \
+    /tmp/akmods-rpms/kmods/*xone*.rpm \
+    /tmp/akmods-rpms/kmods/*openrazer*.rpm \
+    /tmp/akmods-rpms/kmods/*v4l2loopback*.rpm \
+    /tmp/akmods-rpms/kmods/*wl*.rpm \
+    /tmp/akmods-rpms/kmods/*framework-laptop*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*gcadapter_oc*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*nct6687*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*zenergy*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*vhba*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*gpd-fan*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*ayaneo-platform*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*ayn-platform*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*bmi260*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*ryzen-smu*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*evdi*.rpm \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
+    fwupd \
+    fwupd-plugin-flashrom \
+    fwupd-plugin-modem-manager \
+    fwupd-plugin-uefi-capsule-data && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo && \
+    /usr/libexec/build/cleanup.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree override remove \
+    ublue-os-update-services \
+    firefox \
+    firefox-langpacks \
+    htop \
+    || true && \
+    /usr/libexec/build/cleanup.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    git \
+    discover-overlay \
+    cpulimit \
+    tailscale \
+    lact \
+    fastfetch \
+    btop \
+    fzf \
+    zoxide \
+    eza \
+    vim \
+    zsh \
+    starship \
+    zsh \
+    zsh-autosuggestions \
+    ghostty \
+    ptyxis \
+    tmux \
     unzip \
-    neovim \
+    cascadia-code-nf-fonts \
+    cascadia-mono-nf-fonts \
+    nerd-fonts \    neovim \
     || true && \
     /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    cosmic-desktop && \
+    # Install gnome-software and gnome-disks
+    rpm-ostree install \
+    gnome-software \
+    gnome-disk-utility \
+    gparted \
+    gnome-keyring NetworkManager-tui \
+    NetworkManager-openvpn && \
+    # We remove cosmic-store and replace it with gnome-software for better functionality
+    rpm-ostree remove \
+    cosmic-store || true && \
+    /usr/libexec/build/cleanup.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    echo "Will install Homebrew inside /home/linuxbrew" && \
+    touch /.dockerenv && \
+    mkdir -p /var/home && \
+    mkdir -p /var/roothome && \
+    curl -Lo /tmp/brew-install https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
+    chmod +x /tmp/brew-install && \
+    /tmp/brew-install && \
+    tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
+    /usr/libexec/build/cleanup.sh && \
     ostree container commit
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
