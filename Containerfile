@@ -295,6 +295,26 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# Add after one of your RUN blocks, preferably after the fastfetch installation
+RUN mkdir -p /usr/share/ublue-os/orb/ && \
+    # Create symbolic link so fastfetch can find the configuration
+    ln -sf /usr/share/ublue-os/orb /usr/share/ublue-os/stellarite && \
+    # In case there's a specific fastfetch configuration file needed
+    if [ -f /usr/share/ublue-os/stellarite/fastfetch.jsonc ]; then \
+    cp -f /usr/share/ublue-os/stellarite/fastfetch.jsonc /usr/share/ublue-os/orb/fastfetch.jsonc; \
+    else \
+    # Create a basic fastfetch config if none exists
+    mkdir -p /usr/share/ublue-os/orb && \
+    echo '{\n  "logo": "orb",\n  "color": "blue",\n  "style": "classic"\n}' > /usr/share/ublue-os/orb/fastfetch.jsonc; \
+    fi && \
+    # If the fastfetch command takes a config option, create a wrapper script
+    if grep -q 'config' "$(which fastfetch)" 2>/dev/null; then \
+    mv /usr/bin/fastfetch /usr/bin/fastfetch-original; \
+    echo '#!/bin/bash\n/usr/bin/fastfetch-original --config /usr/share/ublue-os/orb/fastfetch.jsonc "$@"' > /usr/bin/fastfetch; \
+    chmod +x /usr/bin/fastfetch; \
+    fi && \
+    # Ensure proper ownership and permissions
+    chmod 644 /usr/share/ublue-os/orb/fastfetch.jsonc
 
 # Add this after line 287 in a separate RUN block to ensure fastfetch is installed correctly
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
