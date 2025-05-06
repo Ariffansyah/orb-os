@@ -286,11 +286,29 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl disable sddm.service sddm.socket || true && \
     # Create a directory for cosmic-greeter service overrides
     mkdir -p /etc/systemd/system/cosmic-greeter.service.d && \
-    # Create an override file to ensure cosmic-greeter starts properly (fixing circular dependency)
-    echo -e "[Unit]\nBefore=graphical.target\nConflicts=gdm.service sddm.service\n\n[Service]\nType=simple\nRestart=always\nRestartSec=1\n\n[Install]\nWantedBy=graphical.target" > /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
+    # Create optimized cosmic-greeter service override with fixed dependencies
+    echo -e '[Unit]\nDescription=COSMIC Desktop Greeter\nBefore=graphical.target\nAfter=multi-user.target\nAfter=systemd-user-sessions.service\nAfter=plymouth-quit.service\nConflicts=gdm.service sddm.service\n\n[Service]\nType=simple\nExecStartPre=/bin/sleep 1\nRestart=always\nRestartSec=1\n\n[Install]\nWantedBy=graphical.target' > /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
+    # Create a first-boot service to ensure cosmic-greeter users exist
+    mkdir -p /usr/local/bin && \
+    echo '#!/bin/bash\n# Ensure required users and groups exist at first boot\nif ! grep -q "^cosmic-greeter:" /etc/passwd; then\n    grep -E "^cosmic-greeter:" /usr/etc/passwd >> /etc/passwd || true\nfi\nif ! grep -q "^greetd:" /etc/passwd; then\n    grep -E "^greetd:" /usr/etc/passwd >> /etc/passwd || true\nfi\nif ! grep -q "^cosmic-greeter:" /etc/group; then\n    grep -E "^cosmic-greeter:" /usr/etc/group >> /etc/group || true\nfi\nif ! grep -q "^greetd:" /etc/group; then\n    grep -E "^greetd:" /usr/etc/group >> /etc/group || true\nfi' > /usr/local/bin/cosmic-users-setup && \
+    chmod +x /usr/local/bin/cosmic-users-setup && \
+    # Create a systemd service for the first boot script
+    mkdir -p /etc/systemd/system && \
+    echo '[Unit]\nDescription=COSMIC Users Setup\nBefore=cosmic-greeter.service\nBefore=display-manager.service\nAfter=local-fs.target\n\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/cosmic-users-setup\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /etc/systemd/system/cosmic-users-setup.service && \
+    systemctl enable cosmic-users-setup.service && \
+    # Create a cosmic-recovery service to ensure desktop boots reliably
+    echo '#!/bin/bash\n# Check if cosmic-greeter is running, if not try to restart it\nif ! systemctl is-active cosmic-greeter > /dev/null; then\n    echo "cosmic-greeter not active, attempting recovery..."\n    # Wait a moment for any race conditions to settle\n    sleep 5\n    # Ensure user accounts exist\n    if ! grep -q "^cosmic-greeter:" /etc/passwd; then\n        grep -E "^cosmic-greeter:" /usr/etc/passwd >> /etc/passwd || true\n    fi\n    if ! grep -q "^greetd:" /etc/passwd; then\n        grep -E "^greetd:" /usr/etc/passwd >> /etc/passwd || true\n    fi\n    if ! grep -q "^cosmic-greeter:" /etc/group; then\n        grep -E "^cosmic-greeter:" /usr/etc/group >> /etc/group || true\n    fi\n    if ! grep -q "^greetd:" /etc/group; then\n        grep -E "^greetd:" /usr/etc/group >> /etc/group || true\n    fi\n    \n    # Restart the greeter service\n    systemctl restart cosmic-greeter\nfi' > /usr/local/bin/cosmic-recovery && \
+    chmod +x /usr/local/bin/cosmic-recovery && \
+    # Create a systemd service for the recovery script
+    echo '[Unit]\nDescription=COSMIC Desktop Recovery Service\nAfter=multi-user.target\nAfter=network.target\n\n[Service]\nType=oneshot\nExecStart=/usr/local/bin/cosmic-recovery\nRemainAfterExit=yes\n\n[Install]\nWantedBy=graphical.target' > /etc/systemd/system/cosmic-recovery.service && \
+    systemctl enable cosmic-recovery.service && \
+    # Ensure cosmic-greeter is properly registered as a display manager
+    mkdir -p /etc/systemd/system/display-manager.service.d && \
+    echo '[Unit]\nDescription=COSMIC Display Manager\nConflicts=gdm.service sddm.service\n\n[Service]\nExecStart=\nExecStart=/usr/bin/cosmic-greeter' > /etc/systemd/system/display-manager.service.d/cosmic-override.conf && \
+    ln -sf /usr/lib/systemd/system/cosmic-greeter.service /etc/systemd/system/display-manager.service || true && \
     # Create helper script for fixing boot issues
     mkdir -p /usr/local/bin && \
-    echo '#!/bin/bash\necho "Fixing COSMIC GUI boot issues..."\nsystemctl set-default graphical.target\nsystemctl disable gdm sddm || true\nsystemctl enable cosmic-greeter\nsystemctl restart cosmic-greeter' > /usr/local/bin/fix-cosmic-gui && \
+    echo '#!/bin/bash\necho "Fixing COSMIC GUI boot issues..."\nsystemctl set-default graphical.target\nsystemctl disable gdm sddm || true\nsystemctl enable cosmic-greeter cosmic-users-setup cosmic-recovery\nsystemctl restart cosmic-greeter' > /usr/local/bin/fix-cosmic-gui && \
     chmod +x /usr/local/bin/fix-cosmic-gui && \
     # Enable COSMIC service and other necessary services
     systemctl enable cosmic-greeter && \
@@ -299,21 +317,12 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl enable brew-setup.service && \
     systemctl disable brew-upgrade.timer && \
     systemctl disable brew-update.timer && \
-    systemctl disable waydroid-container.service || true && \
     systemctl --global enable podman.socket && \
     # Add configuration files and utilities
     curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
-    curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh || true && \
-    chmod +x /usr/bin/waydroid-choose-gpu || true && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Configure OSTree remote for updates
-    mkdir -p /etc/ostree && \
-    ostree remote delete fedora-iot || true && \
-    ostree remote delete ghcr-orb-os || true && \
-    ostree remote add --no-gpg-verify ghcr-orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest && \
-    echo "Configured OSTree remote for updates" && \
     # Disable COPR repositories to speed up syncing
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
     find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
