@@ -349,14 +349,11 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     mkdir -p /etc/ostree && \
     ostree remote delete fedora-iot || true && \
     ostree remote delete ghcr-orb-os || true && \
-    ostree remote add --no-gpg-verify ghcr-orb-os ostree-unverified-image:docker://ghcr.io/ariffansyah/orb-os:latest && \
+    ostree remote add --no-gpg-verify ghcr-orb-os https://ghcr.io/ariffansyah/orb-os:latest && \
     echo "Configured OSTree remote for updates" && \
     # Configure rpm-ostree update behavior
     mkdir -p /etc/rpm-ostreed.conf.d/ && \
     echo -e "[Daemon]\nAutomaticUpdatePolicy=check" > /etc/rpm-ostreed.conf.d/automatic-updates.conf && \
-    # Create a remote.conf file to persist configuration
-    mkdir -p /etc/ostree/remotes.d && \
-    echo -e "[remote \"ghcr-orb-os\"]\nurl=ostree-unverified-image:docker://ghcr.io/ariffansyah/orb-os:latest\ngpg-verify=false" > /etc/ostree/remotes.d/ghcr-orb-os.conf && \
     # Disabling copr for faster sync
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo || true && \
