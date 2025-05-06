@@ -273,13 +273,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Copy override files and configure the system
 COPY override /
 
-# ==========================================
-# SECTION 11: FINAL CONFIGURATION
-# ==========================================
-# Copy override files and configure the system
-COPY override /
-
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Fix missing user accounts for cosmic-greeter and greetd
+    grep -E '^greetd:' /usr/etc/passwd >> /etc/passwd || true && \
+    grep -E '^cosmic-greeter:' /usr/etc/passwd >> /etc/passwd || true && \
+    grep -E '^greetd:' /usr/etc/group >> /etc/group || true && \
+    grep -E '^cosmic-greeter:' /usr/etc/group >> /etc/group || true && \
     # Ensure proper graphics boot by setting graphical target as default
     systemctl set-default graphical.target && \
     # Make sure existing display managers are disabled to avoid conflicts
@@ -287,8 +286,8 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl disable sddm.service sddm.socket || true && \
     # Create a directory for cosmic-greeter service overrides
     mkdir -p /etc/systemd/system/cosmic-greeter.service.d && \
-    # Create an override file to ensure cosmic-greeter starts properly
-    echo -e "[Unit]\nAfter=graphical.target\nConflicts=gdm.service sddm.service\n\n[Service]\nType=simple\nRestart=always\nRestartSec=1" > /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
+    # Create an override file to ensure cosmic-greeter starts properly (fixing circular dependency)
+    echo -e "[Unit]\nBefore=graphical.target\nConflicts=gdm.service sddm.service\n\n[Service]\nType=simple\nRestart=always\nRestartSec=1\n\n[Install]\nWantedBy=graphical.target" > /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
     # Create helper script for fixing boot issues
     mkdir -p /usr/local/bin && \
     echo '#!/bin/bash\necho "Fixing COSMIC GUI boot issues..."\nsystemctl set-default graphical.target\nsystemctl disable gdm sddm || true\nsystemctl enable cosmic-greeter\nsystemctl restart cosmic-greeter' > /usr/local/bin/fix-cosmic-gui && \
