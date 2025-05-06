@@ -258,24 +258,12 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # Rechunk the image
-      - name: Run Rechunker
-        id: rechunk
-        uses: hhd-dev/rechunk@v1.1.3
+      # Skip rechunk and push the original image
+      # This is a simpler approach that should work reliably
+      - name: Push Original Image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        with:
-          rechunk: "ghcr.io/hhd-dev/rechunk:v1.1.2"
-          ref: "${{ env.IMAGE_NAME }}:latest"
-          prev-ref: "${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}:latest"
-          skip_compression: false
-          version: ${{ env.FEDORA_MAJOR_VERSION }}
-          labels: ${{ steps.metadata.outputs.labels }} # Rechunk strips out all the labels during build, this needs to be reapplied here with newline separator
-
-      # Push directly using podman - for non-rechunked image if rechunk failed
-      - name: Push Original Image if Rechunk Failed
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.rechunk.outcome != 'success'
         run: |
-          echo "Rechunk step failed or was skipped, pushing original image"
+          echo "Pushing original image with multiple tags"
           
           # Push with different tags
           REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
@@ -291,47 +279,6 @@ jobs:
           echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
           
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
-          sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
-          echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
-
-      # Push the rechunked image if rechunk succeeded
-      - name: Push Rechunked Image
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && steps.rechunk.outcome == 'success'
-        run: |
-          echo "Rechunk step succeeded, pushing rechunked image with additional tags"
-          
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          RECHUNK_REF="${{ steps.rechunk.outputs.ref }}"
-          
-          # Extract image ID if it's an OCI reference
-          if [[ "$RECHUNK_REF" == oci:* ]]; then
-            echo "Converting OCI reference to container image"
-            REF_PATH=$(echo $RECHUNK_REF | sed 's|^oci:||')
-            
-            # Import the OCI directory as a container
-            if [ -d "$REF_PATH" ]; then
-              # Use a direct approach to import and tag
-              sudo podman load -i $REF_PATH/index.json
-              LOADED_ID=$(sudo podman images --format "{{.ID}}" | head -n 1)
-              if [ -n "$LOADED_ID" ]; then
-                sudo podman tag $LOADED_ID $REGISTRY_PATH:latest
-              fi
-            fi
-          else
-            # Direct tag if it's already a container reference
-            sudo podman tag $RECHUNK_REF $REGISTRY_PATH:latest
-          fi
-          
-          # Push latest tag first
-          sudo podman push $REGISTRY_PATH:latest
-          echo "Pushed $REGISTRY_PATH:latest"
-          
-          # Tag and push date-based tags
-          sudo podman tag $REGISTRY_PATH:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
-          sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
-          echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
-          
-          sudo podman tag $REGISTRY_PATH:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
 
