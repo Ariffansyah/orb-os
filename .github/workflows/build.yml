@@ -279,7 +279,7 @@ jobs:
           IMAGE_ID=$(sudo podman inspect --format '{{.Id}}' ${{ steps.rechunk.outputs.ref }} 2>/dev/null)
     
           if [ -n "$IMAGE_ID" ]; then
-          echo "Found image ID: $IMAGE_ID"
+            echo "Found image ID: $IMAGE_ID"
       
            # Tag using the image ID
             for tag in latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
