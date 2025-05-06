@@ -295,6 +295,24 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+
+# Add this after line 287 in a separate RUN block to ensure fastfetch is installed correctly
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Ensure fastfetch is properly installed from the main Fedora repositories
+    rpm-ostree install \
+    fastfetch \
+    && /usr/libexec/build/clean.sh \
+    && ostree container commit
+
+# Also add this to verify and create symlinks if needed
+RUN if [ ! -f /usr/bin/fastfetch ] && [ -f /usr/bin/fastfetch-bin ]; then \
+    ln -s /usr/bin/fastfetch-bin /usr/bin/fastfetch; \
+    fi && \
+    if [ -f /usr/libexec/fancy-fastfetch ]; then \
+    # Fix the shebang line if it's incorrect
+    sed -i '1s|.*|#!/usr/bin/env bash|' /usr/libexec/fancy-fastfetch; \
+    fi
+
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     python3 \
@@ -330,14 +348,15 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Configure OSTree remote for updates
     mkdir -p /etc/ostree && \
     ostree remote delete fedora-iot || true && \
-    ostree remote add --no-gpg-verify ghcr-orb-os https://ghcr.io/Ariffansyah/orb-os && \
+    ostree remote delete ghcr-orb-os || true && \
+    ostree remote add --no-gpg-verify ghcr-orb-os ostree-unverified-image:docker://ghcr.io/ariffansyah/orb-os:latest && \
     echo "Configured OSTree remote for updates" && \
     # Configure rpm-ostree update behavior
     mkdir -p /etc/rpm-ostreed.conf.d/ && \
     echo -e "[Daemon]\nAutomaticUpdatePolicy=check" > /etc/rpm-ostreed.conf.d/automatic-updates.conf && \
     # Create a remote.conf file to persist configuration
     mkdir -p /etc/ostree/remotes.d && \
-    echo -e "[remote \"ghcr-orb-os\"]\nurl=https://ghcr.io/ariffansyah/orb-os\ngpg-verify=false" > /etc/ostree/remotes.d/ghcr-orb-os.conf && \
+    echo -e "[remote \"ghcr-orb-os\"]\nurl=ostree-unverified-image:docker://ghcr.io/ariffansyah/orb-os:latest\ngpg-verify=false" > /etc/ostree/remotes.d/ghcr-orb-os.conf && \
     # Disabling copr for faster sync
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo || true && \
