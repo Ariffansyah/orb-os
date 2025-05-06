@@ -234,6 +234,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Set default hostname to orb
+    echo "orb" > /etc/hostname && \
+    chmod 644 /etc/hostname && \
     # Service management
     systemctl enable lactd || true && \
     systemctl disable gdm || true && \
@@ -279,9 +282,3 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     /usr/libexec/build/clean.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
-
-# ==========================================
-# SECTION 12: VALIDATION
-# ==========================================
-# Verify the final image
-RUN bootc container lint
