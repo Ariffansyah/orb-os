@@ -188,11 +188,6 @@ jobs:
           --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
           --tag ${{ env.IMAGE_NAME }} .
-      # Deleting unused images after build
-      - name: Remove auxiliary images
-        # We are tight on space, need at least 2x for OSTree
-        run: |
-          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
 
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
