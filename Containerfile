@@ -1,5 +1,6 @@
 FROM ghcr.io/ublue-os/cosmic-atomic-main:42
 
+# Define build arguments
 ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
 ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-cosmic}"
@@ -9,269 +10,169 @@ ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
+# Copy system files
 COPY system /
-## Other possible base images include:
-# FROM ghcr.io/ublue-os/bazzite:latest
-# FROM ghcr.io/ublue-os/bluefin-nvidia:stable
-# 
-# ... and so on, here are more base images
-# Universal Blue Images: https://github.com/orgs/ublue-os/packages
-# Fedora base image: quay.io/fedora/fedora-bootc:41
-# CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
 
-### MODIFICATIONS
-## make modifications desired in your image and install packages by modifying the build.sh script
-## the following RUN directive does all the things required to run "build.sh" as recommended.
-
+# ==========================================
+# SECTION 1: SYSTEM PACKAGE OVERRIDES
+# ==========================================
+# Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Base system overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=fedora \
     libusb1 \
     || true && \
+    # Graphics and display overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=updates \
     vulkan-loader \
+    libdrm \
+    libdecor \
+    atk \
+    at-spi2-atk \
+    libX11 libX11-common libX11-xcb \
+    libinput \
     || true && \
+    # Media and codec overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=updates \
     alsa-lib \
+    gstreamer1 gstreamer1-plugins-base \
+    libaom \
+    libopenmpt \
+    libv4l \
     || true && \
+    # System library overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=updates \
     gnutls \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     glib2 \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     nspr \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    nss \
-    nss-softokn \
-    nss-softokn-freebl \
-    nss-sysinit \
-    nss-util \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    atk \
-    at-spi2-atk \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    libaom \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    gstreamer1 \
-    gstreamer1-plugins-base \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    libdecor \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
+    nss nss-softokn nss-softokn-freebl nss-sysinit nss-util \
     libtirpc \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     libuuid \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     libblkid \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     libmount \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     cups-libs \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    libinput \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    libopenmpt \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     llvm-libs \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     zlib-ng-compat \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     fontconfig \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     pciutils-libs \
     || true && \
+    # Compiler and runtime libraries
     rpm-ostree override replace \
     --experimental \
     --from repo=updates \
-    libdrm \
+    cpp libatomic libgcc libgfortran libgomp libobjc libstdc++ \
+    elfutils-libelf elfutils-libs \
     || true && \
+    # Core system overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=updates \
-    cpp \
-    libatomic \
-    libgcc \
-    libgfortran \
-    libgomp \
-    libobjc \
-    libstdc++ \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    libX11 \
-    libX11-common \
-    libX11-xcb \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    libv4l \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    elfutils-libelf \
-    elfutils-libs \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    glibc \
-    glibc-common \
-    glibc-all-langpacks \
-    glibc-gconv-extra \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
+    glibc glibc-common glibc-all-langpacks glibc-gconv-extra \
     libxcrypt \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
     SDL2 \
     || true && \
+    # Remove unnecessary packages
     rpm-ostree override remove \
     glibc32 \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 2: REPOSITORY SETUP
+# ==========================================
+# Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add COPR repositories
+    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
+    https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
+    https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 3: CORE UTILITIES
+# ==========================================
+# Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    git \
-    vim \
-    zsh \
-    starship \
-    ghostty \
-    ptyxis \
-    tmux \
+    # Terminal utilities
+    git vim zsh starship tmux \
+    # Terminal emulators
+    ghostty ptyxis \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 4: PACKAGE REMOVALS
+# ==========================================
+# Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
     ublue-os-update-services \
-    firefox \
-    firefox-langpacks \
+    firefox firefox-langpacks \
     htop \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 5: DEVELOPER TOOLS & UTILITIES
+# ==========================================
+# Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    git \
-    discover-overlay \
-    cpulimit \
-    tailscale \
-    lact \
-    fastfetch \
-    btop \
-    fzf \
-    zoxide \
-    eza \
-    vim \
-    zsh \
-    starship \
-    zsh \
-    zsh-autosuggestions \
-    ghostty \
-    ptyxis \
-    tmux \
+    # Productivity tools
+    git fzf zoxide eza \
+    btop fastfetch \
+    # System utilities
+    discover-overlay cpulimit tailscale lact \
     unzip \
-    cascadia-code-nf-fonts \
-    cascadia-mono-nf-fonts \
-    nerd-fonts \
+    # Shells and terminal enhancers
+    vim zsh starship zsh-autosuggestions \
+    ghostty ptyxis tmux \
+    # Fonts
+    cascadia-code-nf-fonts cascadia-mono-nf-fonts nerd-fonts \
+    # Editors
     neovim \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 6: DESKTOP ENVIRONMENT
+# ==========================================
+# Install COSMIC desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    cosmic-desktop && \
-    # Install gnome-software and gnome-disks
+    # Install COSMIC desktop
+    rpm-ostree install cosmic-desktop && \
+    # Install additional desktop utilities
     rpm-ostree install \
     gnome-software \
     gnome-disk-utility \
     gparted \
     gnome-keyring NetworkManager-tui \
     NetworkManager-openvpn && \
-    # We remove cosmic-store and replace it with gnome-software for better functionality
+    # Remove cosmic-store (we use gnome-software instead)
     rpm-ostree remove \
     cosmic-store || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 7: HOMEBREW SETUP
+# ==========================================
+# Install Homebrew package manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     echo "Will install Homebrew inside /home/linuxbrew" && \
     touch /.dockerenv && \
@@ -284,45 +185,68 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
+# ==========================================
+# SECTION 8: PROGRAMMING LANGUAGES
+# ==========================================
+# Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    fastfetch \
-    nodejs \
-    npm \
+    # JavaScript/Node.js
+    nodejs npm \
+    # Java
     java-latest-openjdk \
+    # Go
     golang \
+    # Python
+    python3 python3-pip python3-devel \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
-# Add this after line 287 in a separate RUN block to ensure fastfetch is installed correctly
+# ==========================================
+# SECTION 9: FASTFETCH SETUP
+# ==========================================
+# Ensure fastfetch is properly installed and configured
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Ensure fastfetch is properly installed from the main Fedora repositories
-    rpm-ostree install \
-    fastfetch \
-    && /usr/libexec/build/clean.sh \
-    && ostree container commit
+    # Install fastfetch
+    rpm-ostree install fastfetch && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
 
-# Also add this to verify and create symlinks if needed
-RUN if [ ! -f /usr/bin/fastfetch ] && [ -f /usr/bin/fastfetch-bin ]; then \
+# Fix fastfetch configuration and symlinks
+RUN mkdir -p /usr/share/ublue-os/orb/ && \
+    # Create symbolic link so fastfetch can find the configuration
+    ln -sf /usr/share/ublue-os/orb /usr/share/ublue-os/stellarite && \
+    # Create a basic fastfetch config
+    echo '{\n  "logo": "orb",\n  "color": "blue",\n  "style": "classic"\n}' > /usr/share/ublue-os/orb/fastfetch.jsonc && \
+    # Create symlinks if needed
+    if [ ! -f /usr/bin/fastfetch ] && [ -f /usr/bin/fastfetch-bin ]; then \
     ln -s /usr/bin/fastfetch-bin /usr/bin/fastfetch; \
     fi && \
-    if [ -f /usr/libexec/fancy-fastfetch ]; then \
     # Fix the shebang line if it's incorrect
+    if [ -f /usr/libexec/fancy-fastfetch ]; then \
     sed -i '1s|.*|#!/usr/bin/env bash|' /usr/libexec/fancy-fastfetch; \
-    fi
+    fi && \
+    chmod 644 /usr/share/ublue-os/orb/fastfetch.jsonc
 
+# ==========================================
+# SECTION 10: NEOVIM INSTALLATION
+# ==========================================
+# Ensure neovim is properly installed
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    python3 \
-    python3-pip \
-    python3-devel \
-    || true && \
+    # Install neovim specifically
+    rpm-ostree install neovim && \
+    # Verify the installation
+    rpm -q neovim && \
+    which nvim || echo "Neovim not found in PATH" && \
+    # Clean up
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
-### LINTING
-## Verify final image and contents are correct.
+# ==========================================
+# SECTION 11: FINAL CONFIGURATION
+# ==========================================
+# Copy override files and configure the system
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
@@ -337,7 +261,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl disable brew-update.timer && \
     systemctl disable waydroid-container.service || true && \
     systemctl --global enable podman.socket && \
-    # Adding good stuff
+    # Add configuration files and utilities
     curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
     curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh || true && \
     chmod +x /usr/bin/waydroid-choose-gpu || true && \
@@ -353,41 +277,27 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Configure rpm-ostree update behavior
     mkdir -p /etc/rpm-ostreed.conf.d/ && \
     echo -e "[Daemon]\nAutomaticUpdatePolicy=check" > /etc/rpm-ostreed.conf.d/automatic-updates.conf && \
-    # Disabling copr for faster sync
+    # Disable COPR repositories to speed up syncing
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-staging.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-latencyflex.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-obs-vkcapture.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ycollet-audinux.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-rom-properties.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-webapp-manager.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hhd-dev-hhd.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_che-nerd-fonts.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_mavit-discover-overlay.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_lizardbyte-beta.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hikariknight-looking-glass-kvmfr.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_pgdev-ghostty.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-starship.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_alebastr-sway-extras.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/tailscale.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/charm.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-steam.repo || true && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-rar.repo || true && \
+    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
+    # Disable other repositories for faster sync
+    for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
+    if [ -f "/etc/yum.repos.d/$repo" ]; then \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
+    fi \
+    done && \
+    # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Finishing stuff
+    # Finishing up
     if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
     if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
     /usr/libexec/build/clean.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
 
+# ==========================================
+# SECTION 12: VALIDATION
+# ==========================================
+# Verify the final image
 RUN bootc container lint
