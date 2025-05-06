@@ -273,12 +273,29 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Copy override files and configure the system
 COPY override /
 
+# ==========================================
+# SECTION 11: FINAL CONFIGURATION
+# ==========================================
+# Copy override files and configure the system
+COPY override /
+
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Service management
-    systemctl enable lactd || true && \
-    systemctl disable gdm || true && \
-    systemctl disable sddm || true && \
+    # Ensure proper graphics boot by setting graphical target as default
+    systemctl set-default graphical.target && \
+    # Make sure existing display managers are disabled to avoid conflicts
+    systemctl disable gdm.service gdm.socket || true && \
+    systemctl disable sddm.service sddm.socket || true && \
+    # Create a directory for cosmic-greeter service overrides
+    mkdir -p /etc/systemd/system/cosmic-greeter.service.d && \
+    # Create an override file to ensure cosmic-greeter starts properly
+    echo -e "[Unit]\nAfter=graphical.target\nConflicts=gdm.service sddm.service\n\n[Service]\nType=simple\nRestart=always\nRestartSec=1" > /etc/systemd/system/cosmic-greeter.service.d/override.conf && \
+    # Create helper script for fixing boot issues
+    mkdir -p /usr/local/bin && \
+    echo '#!/bin/bash\necho "Fixing COSMIC GUI boot issues..."\nsystemctl set-default graphical.target\nsystemctl disable gdm sddm || true\nsystemctl enable cosmic-greeter\nsystemctl restart cosmic-greeter' > /usr/local/bin/fix-cosmic-gui && \
+    chmod +x /usr/local/bin/fix-cosmic-gui && \
+    # Enable COSMIC service and other necessary services
     systemctl enable cosmic-greeter && \
+    systemctl enable lactd || true && \
     systemctl enable brew-dir-fix.service && \
     systemctl enable brew-setup.service && \
     systemctl disable brew-upgrade.timer && \
@@ -292,6 +309,12 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
+    # Configure OSTree remote for updates
+    mkdir -p /etc/ostree && \
+    ostree remote delete fedora-iot || true && \
+    ostree remote delete ghcr-orb-os || true && \
+    ostree remote add --no-gpg-verify ghcr-orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest && \
+    echo "Configured OSTree remote for updates" && \
     # Disable COPR repositories to speed up syncing
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
     find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
