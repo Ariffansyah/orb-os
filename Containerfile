@@ -42,40 +42,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
-
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=akmods,src=/rpms,dst=/tmp/akmods-rpms \
-    --mount=type=bind,from=akmods-extra,src=/rpms,dst=/tmp/akmods-extra-rpms \
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
-    rpm-ostree install \
-    /tmp/akmods-rpms/kmods/*kvmfr*.rpm \
-    /tmp/akmods-rpms/kmods/*xone*.rpm \
-    /tmp/akmods-rpms/kmods/*openrazer*.rpm \
-    /tmp/akmods-rpms/kmods/*v4l2loopback*.rpm \
-    /tmp/akmods-rpms/kmods/*wl*.rpm \
-    /tmp/akmods-rpms/kmods/*framework-laptop*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*gcadapter_oc*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*nct6687*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*zenergy*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*vhba*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*gpd-fan*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*ayaneo-platform*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*ayn-platform*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*bmi260*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*ryzen-smu*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*evdi*.rpm \
-    || true && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
-    fwupd \
-    fwupd-plugin-flashrom \
-    fwupd-plugin-modem-manager \
-    fwupd-plugin-uefi-capsule-data && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo && \
-    /usr/libexec/build/cleanup.sh && \
-    ostree container commit
-
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
     ublue-os-update-services \
