@@ -1,4 +1,4 @@
-name: Build ORB ISO
+name: build orb iso
 on:
   workflow_dispatch:
   pull_request:
@@ -33,105 +33,68 @@ jobs:
       # Unified environment variables declaration to make things neat.
       - name: Define extra environment variables
         run: |
-          echo "CONTAINER_TARGET=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "CONTAINER_TAR eGET=${IMAGE_NAME}" >> $GITHUB_ENV
           echo "SHA_HEAD_SHORT=${GITHUB_SHA::7}" >> $GITHUB_ENV
+          echo "KERNEL_FLAVOR=${KERNEL_FLAVOR}" >> $GITHUB_ENV
           echo "FEDORA_VERSION=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
+          #echo "IMAGE_TAG=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v4
 
       # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
+      # https://github.com/macbre/push-to-ghcr/issues/12
       - name: Lowercase Registry
         id: registry_case
         uses: ASzc/change-string-case-action@v6
         with:
           string: ${{ env.IMAGE_REGISTRY }}
 
-      - name: Lowercase Owner
-        id: owner_case
-        uses: ASzc/change-string-case-action@v6
-        with:
-          string: ${{ github.repository_owner }}
-
-      - name: Lowercase Image
-        id: image_case
-        uses: ASzc/change-string-case-action@v6
-        with:
-          string: ${{ env.IMAGE_NAME }}
-
-      - name: Prepare Flatpak Directory with Proper Permissions
-        id: prepare-flatpak
-        run: |
-          # Create directory with proper permissions
-          mkdir -p flatpak-refs
-          chmod -R 777 flatpak-refs
-          
-          # Create a minimal list of Flatpak applications
-          cat > flatpak-refs/flatpaks << EOF
-          com.brave.Browser
-          com.visualstudio.code
-          EOF
-          
-          # Create empty flatpaks-with-deps file with proper permissions
-          touch flatpak-refs/flatpaks-with-deps
-          chmod 666 flatpak-refs/flatpaks-with-deps
-          
-          echo "FLATPAK_REFS_DIR=flatpak-refs" >> $GITHUB_OUTPUT
-
-      - name: Login to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Check if image exists
-        id: check_image
-        run: |
-          IMAGE_REPO="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          if docker pull $IMAGE_REPO:${{ env.IMAGE_TAG }} &>/dev/null; then
-            echo "Image exists, proceeding with ISO build"
-            echo "IMAGE_EXISTS=true" >> $GITHUB_ENV
-            echo "IMAGE_FULL=$IMAGE_REPO:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
-          else
-            echo "Image does not exist, setting up fallback mechanisms"
-            echo "IMAGE_EXISTS=false" >> $GITHUB_ENV
-            # Instead of failing, create an empty file to continue with build
-            touch flatpak-refs/flatpaks-with-deps
-          fi
-
-      # Skip actual flatpak installation since it's causing permission issues
-      # Instead we'll create a script that outputs pre-defined values
-      - name: Set Up Flatpak Dependencies Bypass
+      - name: Get Flatpak dependencies
         id: flatpak-dependencies
+        env:
+          IMAGE_FULL: ${{ steps.registry_case.outputs.lowercase }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        shell: bash
         run: |
-          # Create a script that will run instead of the actual flatpak installation
-          cat > flatpak-setup.sh << 'EOF'
-          #!/bin/bash
-          echo "This is a bypass for Flatpak dependencies"
-          # List some common flatpaks that might be used
-          cat > /output/flatpaks-with-deps << 'INNEREOF'
-          org.gnome.Platform/x86_64/44
-          com.brave.Browser/x86_64/stable
-          com.visualstudio.code/x86_64/stable
-          org.freedesktop.Platform/x86_64/23.08
-          org.freedesktop.Sdk/x86_64/23.08
-          INNEREOF
-          chmod 666 /output/flatpaks-with-deps
-          EOF
-          
-          chmod +x flatpak-setup.sh
-          
-          # Run the script directly with docker, avoiding the permission issues
-          FLATPAK_REFS_DIR="${{ steps.prepare-flatpak.outputs.FLATPAK_REFS_DIR }}"
+          set -euox pipefail
+
+          IMAGE="${IMAGE_FULL}"
+
+          # Create temporary directory
+          TEMP_FLATPAK_INSTALL_DIR=$(mktemp -d -p /tmp flatpak-XXXXXX)
+          FLATPAK_REFS_DIR=./flatpak-refs
           FLATPAK_REFS_DIR_ABS=$(realpath "${FLATPAK_REFS_DIR}")
-          
-          docker run --rm \
-            -v ${FLATPAK_REFS_DIR_ABS}:/output \
-            -v $(pwd)/flatpak-setup.sh:/flatpak-setup.sh:ro \
+          mkdir -p "${FLATPAK_REFS_DIR}"
+          mv flatpaks "${FLATPAK_REFS_DIR_ABS}/flatpaks"
+
+          # Read the list of Flatpak packages from the manifest
+          FLATPAK_REFS=()
+          while IFS= read -r line; do
+            FLATPAK_REFS+=("$line")
+          done < "${FLATPAK_REFS_DIR}/flatpaks"
+
+          echo "Flatpak refs: ${FLATPAK_REFS[@]}"
+
+          # Generate installation script
+          cat <<EOF > "${TEMP_FLATPAK_INSTALL_DIR}/install-flatpaks.sh"
+          mkdir -p /flatpak/flatpak /flatpak/triggers
+          mkdir /var/tmp
+          chmod -R 1777 /var/tmp
+          flatpak config --system --set languages "*"
+          flatpak remote-add --system flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --system -y flathub ${FLATPAK_REFS[@]}
+          ostree refs --repo=\${FLATPAK_SYSTEM_DIR}/repo | grep '^deploy/' | grep -v 'org\.freedesktop\.Platform\.openh264' | sed 's/^deploy\///g' > /output/flatpaks-with-deps
+          EOF
+          docker run --rm --privileged \
             --entrypoint /bin/bash \
-            ubuntu:22.04 /flatpak-setup.sh
-            
+            -e FLATPAK_SYSTEM_DIR=/flatpak/flatpak \
+            -e FLATPAK_TRIGGERS_DIR=/flatpak/triggers \
+            -v ${FLATPAK_REFS_DIR_ABS}:/output \
+            -v ${TEMP_FLATPAK_INSTALL_DIR}:/temp_flatpak_install_dir \
+            ${IMAGE} /temp_flatpak_install_dir/install-flatpaks.sh
+          docker rmi ${IMAGE}
+          cat ${FLATPAK_REFS_DIR}/flatpaks-with-deps
+
           echo "FLATPAK_REFS_DIR=${FLATPAK_REFS_DIR}" >> $GITHUB_OUTPUT
 
       - name: Build ISOs
@@ -140,8 +103,9 @@ jobs:
         with:
           iso_name: ${{ env.IMAGE_NAME }}-${{ env.FEDORA_VERSION }}.iso
           arch: x86_64
-          image_name: ${{ steps.image_case.outputs.lowercase }}
-          image_repo: ${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}
+          image_name: ${{ env.IMAGE_NAME }}
+          image_repo: ${{ steps.registry_case.outputs.lowercase }}
+          # We cannot use Silverblue variant since we need the user creation options in anaconda
           variant: "Kinoite"
           version: ${{ env.FEDORA_VERSION }}
           image_tag: ${{ env.IMAGE_TAG }}
@@ -152,13 +116,12 @@ jobs:
 
       - name: Upload ISOs and Checksum to Job Artifacts
         uses: actions/upload-artifact@v4
-        if: success()
         with:
           name: ${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}
           path: |
             ${{ steps.build.outputs.iso_path }}
             ${{ steps.build.outputs.iso_path }}-CHECKSUM
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 0
           compression-level: 3
           overwrite: true
