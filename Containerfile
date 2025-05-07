@@ -202,12 +202,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     plasma-discover plasma-thunderbolt \
     plasma-firewall plasma-systemsettings \
     # KDE additional utilities
-    kscreen krunner breeze-gtk breeze-icon-theme \
+    kscreen breeze-gtk breeze-icon-theme \
     # Network management tools
     NetworkManager-tui NetworkManager-openvpn-gnome \
     NetworkManager-wifi NetworkManager-wwan \
-    # Disk utilities
-    partitionmanager \
+    # KFFind for file searching - alternative to krunner for some functionality
+    kf5-kfind \
+    # Use KDE Partition Manager if available, otherwise use GParted
+    gparted \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
@@ -216,74 +218,17 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 7: HOMEBREW SETUP - FIXED VERSION
 # ==========================================
 # Create Homebrew installation files instead of direct installation
+
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    mkdir -p /usr/share/brew-install && \
-    mkdir -p /etc/brew-install && \
-    curl -fsSL -o /usr/share/brew-install/install.sh \
-    https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
-    chmod +x /usr/share/brew-install/install.sh && \
-    # Create installation script that will be executed by systemd on first boot
-    cat > /etc/brew-install/brew-setup.sh << 'EOF' && \
-    #!/bin/bash
-    set -euo pipefail
-
-# Check if brew is already installed
-if command -v brew &>/dev/null; then
-echo "Homebrew already installed, skipping installation."
-exit 0
-fi
-
-# Create directories
-mkdir -p /home/linuxbrew
-mkdir -p /var/home
-mkdir -p /var/roothome
-
-# Setup environment for Homebrew
-export CI=1  # Disable interactive prompts
-
-# Run the installer and capture output
-echo "Installing Homebrew..."
-/usr/share/brew-install/install.sh || {
-echo "Homebrew installation failed. Please check the logs."
-exit 1
-}
-
-echo "Homebrew installation completed successfully."
-exit 0
-EOF
-chmod +x /etc/brew-install/brew-setup.sh && \
-    # Create systemd service to run the installation script on first boot
-    cat > /usr/lib/systemd/system/brew-setup.service << 'EOF' && \
-    [Unit]
-Description=Setup Homebrew on first boot
-After=network-online.target
-Wants=network-online.target
-ConditionPathExists=!/var/lib/brew-setup-completed
-
-[Service]
-Type=oneshot
-ExecStart=/etc/brew-install/brew-setup.sh
-ExecStartPost=/usr/bin/touch /var/lib/brew-setup-completed
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
-# Create brew wrapper script
-cat > /usr/bin/brew-wrapper << 'EOF' && \
-    #!/bin/bash
-    if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
-/home/linuxbrew/.linuxbrew/bin/brew "$@"
-elif [ -x /opt/homebrew/bin/brew ]; then
-/opt/homebrew/bin/brew "$@"
-else
-echo "Homebrew is not installed yet. Please run 'sudo systemctl start brew-setup.service'"
-exit 1
-fi
-EOF
-chmod +x /usr/bin/brew-wrapper && \
-    ln -sf /usr/bin/brew-wrapper /usr/bin/brew && \
-    /usr/libexec/build/clean.sh && \
+    echo "Will install Homebrew inside /home/linuxbrew" && \
+    touch /.dockerenv && \
+    mkdir -p /var/home && \
+    mkdir -p /var/roothome && \
+    curl -Lo /tmp/brew-install https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
+    chmod +x /tmp/brew-install && \
+    /tmp/brew-install && \
+    tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
