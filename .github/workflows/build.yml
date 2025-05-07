@@ -17,10 +17,10 @@ env:
   IMAGE_DESC: "My Customized Universal Blue Image"
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/120078124?s=200&v=4"  # You should put your own image here so that you get a fancy profile image on https://artifacthub.io/!
-  FEDORA_VERSION: "41"
+  FEDORA_VERSION: "42"
   IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
   PULL_IMAGE_REGISTRY: "quay.io"
-  BASE_IMAGE_NAME: "kinoite"
+  BASE_IMAGE_NAME: "fedora"
   BASE_IMAGE_FLAVOR: "fedora-kinoite"
   DEFAULT_TAG: "latest"
 
