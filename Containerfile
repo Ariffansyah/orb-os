@@ -9,8 +9,6 @@ ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora-kinoite}"
 ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
-ARG OSTREE_REMOTE_NAME="${OSTREE_REMOTE_NAME}"
-ARG OSTREE_REMOTE_URL="${OSTREE_REMOTE_URL}"
 
 # Copy system files
 COPY system /
@@ -215,18 +213,76 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 7: HOMEBREW SETUP
+# SECTION 7: HOMEBREW SETUP - FIXED VERSION
 # ==========================================
-# Install Homebrew package manager
+# Create Homebrew installation files instead of direct installation
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    echo "Will install Homebrew inside /home/linuxbrew" && \
-    touch /.dockerenv && \
-    mkdir -p /var/home && \
-    mkdir -p /var/roothome && \
-    curl -Lo /tmp/brew-install https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
-    chmod +x /tmp/brew-install && \
-    /tmp/brew-install && \
-    tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
+    mkdir -p /usr/share/brew-install && \
+    mkdir -p /etc/brew-install && \
+    curl -fsSL -o /usr/share/brew-install/install.sh \
+    https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
+    chmod +x /usr/share/brew-install/install.sh && \
+    # Create installation script that will be executed by systemd on first boot
+    cat > /etc/brew-install/brew-setup.sh << 'EOF' && \
+    #!/bin/bash
+    set -euo pipefail
+
+# Check if brew is already installed
+if command -v brew &>/dev/null; then
+echo "Homebrew already installed, skipping installation."
+exit 0
+fi
+
+# Create directories
+mkdir -p /home/linuxbrew
+mkdir -p /var/home
+mkdir -p /var/roothome
+
+# Setup environment for Homebrew
+export CI=1  # Disable interactive prompts
+
+# Run the installer and capture output
+echo "Installing Homebrew..."
+/usr/share/brew-install/install.sh || {
+echo "Homebrew installation failed. Please check the logs."
+exit 1
+}
+
+echo "Homebrew installation completed successfully."
+exit 0
+EOF
+chmod +x /etc/brew-install/brew-setup.sh && \
+    # Create systemd service to run the installation script on first boot
+    cat > /usr/lib/systemd/system/brew-setup.service << 'EOF' && \
+    [Unit]
+Description=Setup Homebrew on first boot
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=!/var/lib/brew-setup-completed
+
+[Service]
+Type=oneshot
+ExecStart=/etc/brew-install/brew-setup.sh
+ExecStartPost=/usr/bin/touch /var/lib/brew-setup-completed
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+# Create brew wrapper script
+cat > /usr/bin/brew-wrapper << 'EOF' && \
+    #!/bin/bash
+    if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+/home/linuxbrew/.linuxbrew/bin/brew "$@"
+elif [ -x /opt/homebrew/bin/brew ]; then
+/opt/homebrew/bin/brew "$@"
+else
+echo "Homebrew is not installed yet. Please run 'sudo systemctl start brew-setup.service'"
+exit 1
+fi
+EOF
+chmod +x /usr/bin/brew-wrapper && \
+    ln -sf /usr/bin/brew-wrapper /usr/bin/brew && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
@@ -285,7 +341,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "[General]\nColorScheme=BreezeDark" > /etc/skel/.config/kdeglobals && \
     # Enable necessary services
     systemctl enable sddm.service || true && \
-    systemctl enable brew-dir-fix.service || true && \
     systemctl enable brew-setup.service || true && \
     systemctl --global enable podman.socket && \
     # Add configuration files and utilities
@@ -305,11 +360,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Create OSTree remote configuration if provided
-    if [ -n "${OSTREE_REMOTE_NAME}" ] && [ -n "${OSTREE_REMOTE_URL}" ]; then \
-    mkdir -p /etc/ostree/remotes.d && \
-    echo -e "[remote \"${OSTREE_REMOTE_NAME}\"]\nurl=${OSTREE_REMOTE_URL}\ngpg-verify=false" > /etc/ostree/remotes.d/${OSTREE_REMOTE_NAME}.conf; \
-    fi && \
     # Finishing up
     if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
     if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
