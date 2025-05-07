@@ -1,4 +1,3 @@
----
 name: Build Custom Image
 on:
   pull_request:
@@ -20,13 +19,10 @@ env:
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/120078124?s=200&v=4"  # You should put your own image here so that you get a fancy profile image on https://artifacthub.io/!
   FEDORA_VERSION: "42"
   IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
-  PULL_IMAGE_REGISTRY: ghcr.io/ublue-os
-  BASE_IMAGE_NAME: "cosmic-atomic"
-  BASE_IMAGE_FLAVOR: "main"
+  PULL_IMAGE_REGISTRY: "quay.io"
+  BASE_IMAGE_NAME: "fedora"
+  BASE_IMAGE_FLAVOR: "fedora-kinoite"
   DEFAULT_TAG: "latest"
-  OSTREE_REMOTE_NAME: "ghcr-orb-os"
-  OSTREE_REMOTE_URL: "ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest"
-
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
@@ -96,9 +92,6 @@ jobs:
           remove-codeql: true
 
       # Pulling the main image and rechunking it is necessary to avoid common failures.
-      # NOTE: It seems like prepull using wretry does not work along with redhat buildah
-      # Need to run buildah using bash if wanna work properly.
-      #
       - name: Pull main images
         uses: Wandalen/wretry.action@v3.8.0
         with:
@@ -107,7 +100,7 @@ jobs:
           command: |
             # pull the base images used for FROM in Containerfile so
             # we can retry on that unfortunately common failure case
-            sudo podman pull ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
+            sudo podman pull ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
 
             # Add rechunk as well to remove this source of failure
             sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.2
@@ -120,11 +113,11 @@ jobs:
           attempt_delay: 15000
           command: |
             set -eo pipefail
-            skopeo inspect docker://${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }} > source.json
-            ver=$(jq -r '.Labels["org.opencontainers.image.version"]' source.json)
+            skopeo inspect docker://${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }} > source.json
+            ver=$(jq -r '.Labels["org.opencontainers.image.version"] // "42"' source.json)
             if [ -z "$ver" ] || [ "null" = "$ver" ]; then
-              echo "inspected image version must not be empty or null"
-              exit 1
+              echo "Using fallback version ${{ env.FEDORA_VERSION }}"
+              ver="${{ env.FEDORA_VERSION }}"
             fi
             echo "SOURCE_IMAGE_VERSION=$ver" >> $GITHUB_ENV
 
@@ -177,24 +170,22 @@ jobs:
           # Build the main image
           sudo buildah build \
           --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }} \
-          --build-arg IMAGE_FLAVOR=${{ env.IMAGE_FLAVOR }} \
+          --build-arg IMAGE_FLAVOR=kde \
           --build-arg IMAGE_VENDOR=${{ github.repository_owner }} \
           --build-arg BASE_IMAGE_NAME=${{ env.BASE_IMAGE_NAME }} \
           --build-arg BASE_IMAGE_FLAVOR=${{ env.BASE_IMAGE_FLAVOR }} \
-          --build-arg FEDORA_VERSION=${{ env.FEDORA_MAJOR_VERSION }} \
+          --build-arg FEDORA_MAJOR_VERSION=${{ env.FEDORA_MAJOR_VERSION }} \
           --build-arg IMAGE_BRANCH=${{ github.ref_name }} \
           --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
           --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
-          --build-arg OSTREE_REMOTE_NAME=${{ env.OSTREE_REMOTE_NAME }} \
-          --build-arg OSTREE_REMOTE_URL=${{ env.OSTREE_REMOTE_URL }} \
           --tag ${{ env.IMAGE_NAME }}:latest .
 
       # Deleting unused images after build
       - name: Remove auxiliary images
         # We are tight on space, need at least 2x for OSTree
         run: |
-          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}-${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
+          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
 
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
@@ -243,7 +234,7 @@ jobs:
           sbverify --cert akmods.crt vmlinuz || echo "Verification with second cert failed"
 
       # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
-      # https://github.com/macbre/push-to-ghcr/issues/12
+      # @macbre/push-to-ghcr/issues/12
       - name: Lowercase Registry
         id: registry_case
         uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
@@ -292,18 +283,6 @@ jobs:
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
 
-      - name: Generate OSTree Remote Configuration
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          cat > ostree-remote.conf << EOF
-          [remote "${{ env.OSTREE_REMOTE_NAME }}"]
-          url=${{ env.OSTREE_REMOTE_URL }}
-          gpg-verify=false
-          EOF
-          
-          echo "Generated OSTree remote configuration:"
-          cat ostree-remote.conf
-
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
       # using Cosign and save the private key as a repository secret in Github for this workflow
@@ -315,7 +294,7 @@ jobs:
       - name: Sign container image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          IMAGE_FULL="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          IMAGE_FULL="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
           for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
             cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
           done

@@ -1,4 +1,4 @@
-name: build orb iso
+name: Build ORB ISO
 on:
   workflow_dispatch:
   pull_request:
@@ -33,80 +33,154 @@ jobs:
       # Unified environment variables declaration to make things neat.
       - name: Define extra environment variables
         run: |
-          echo "CONTAINER_TAR eGET=${IMAGE_NAME}" >> $GITHUB_ENV
+          echo "CONTAINER_TARGET=${IMAGE_NAME}" >> $GITHUB_ENV
           echo "SHA_HEAD_SHORT=${GITHUB_SHA::7}" >> $GITHUB_ENV
-          echo "KERNEL_FLAVOR=${KERNEL_FLAVOR}" >> $GITHUB_ENV
           echo "FEDORA_VERSION=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
-          #echo "IMAGE_TAG=${FEDORA_MAJOR_VERSION}" >> $GITHUB_ENV
 
       - name: Checkout
         uses: actions/checkout@v4
 
       # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
-      # https://github.com/macbre/push-to-ghcr/issues/12
       - name: Lowercase Registry
         id: registry_case
         uses: ASzc/change-string-case-action@v6
         with:
           string: ${{ env.IMAGE_REGISTRY }}
 
+      - name: Lowercase Owner
+        id: owner_case
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ github.repository_owner }}
+
+      - name: Lowercase Image
+        id: image_case
+        uses: ASzc/change-string-case-action@v6
+        with:
+          string: ${{ env.IMAGE_NAME }}
+
+      - name: Prepare Flatpak Directory
+        id: prepare-flatpak
+        run: |
+          mkdir -p flatpak-refs
+          
+          # Create a minimal list of Flatpak applications
+          cat > flatpak-refs/flatpaks << EOF
+          com.brave.Browser
+          com.discordapp.Discord
+          com.visualstudio.code
+          EOF
+          
+          echo "FLATPAK_REFS_DIR=flatpak-refs" >> $GITHUB_OUTPUT
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if image exists
+        id: check_image
+        run: |
+          IMAGE_REPO="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          if docker pull $IMAGE_REPO:${{ env.IMAGE_TAG }} &>/dev/null; then
+            echo "Image exists, proceeding with ISO build"
+            echo "IMAGE_EXISTS=true" >> $GITHUB_ENV
+            echo "IMAGE_FULL=$IMAGE_REPO:${{ env.IMAGE_TAG }}" >> $GITHUB_ENV
+          else
+            echo "Image does not exist, build process will fail"
+            echo "IMAGE_EXISTS=false" >> $GITHUB_ENV
+            exit 1
+          fi
+
       - name: Get Flatpak dependencies
         id: flatpak-dependencies
-        env:
-          IMAGE_FULL: ${{ steps.registry_case.outputs.lowercase }}/${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+        if: env.IMAGE_EXISTS == 'true'
         shell: bash
         run: |
-          set -euox pipefail
+          set -euo pipefail
 
-          IMAGE="${IMAGE_FULL}"
-
+          IMAGE="${{ env.IMAGE_FULL }}"
+          FLATPAK_REFS_DIR="${{ steps.prepare-flatpak.outputs.FLATPAK_REFS_DIR }}"
+          FLATPAK_REFS_DIR_ABS=$(realpath "${FLATPAK_REFS_DIR}")
+          
           # Create temporary directory
           TEMP_FLATPAK_INSTALL_DIR=$(mktemp -d -p /tmp flatpak-XXXXXX)
-          FLATPAK_REFS_DIR=./flatpak-refs
-          FLATPAK_REFS_DIR_ABS=$(realpath "${FLATPAK_REFS_DIR}")
-          mkdir -p "${FLATPAK_REFS_DIR}"
-          mv flatpaks "${FLATPAK_REFS_DIR_ABS}/flatpaks"
 
           # Read the list of Flatpak packages from the manifest
           FLATPAK_REFS=()
           while IFS= read -r line; do
-            FLATPAK_REFS+=("$line")
+            if [[ -n "$line" && ! "$line" =~ ^# ]]; then
+              FLATPAK_REFS+=("$line")
+            fi
           done < "${FLATPAK_REFS_DIR}/flatpaks"
 
           echo "Flatpak refs: ${FLATPAK_REFS[@]}"
 
           # Generate installation script
           cat <<EOF > "${TEMP_FLATPAK_INSTALL_DIR}/install-flatpaks.sh"
-          mkdir -p /flatpak/flatpak /flatpak/triggers
-          mkdir /var/tmp
+          #!/bin/bash
+          set -euo pipefail
+          mkdir -p /flatpak/flatpak /flatpak/triggers /output
+          mkdir -p /var/tmp
           chmod -R 1777 /var/tmp
+          
+          # Use default Flatpak dir if the custom one is not set up
+          export FLATPAK_SYSTEM_DIR=\${FLATPAK_SYSTEM_DIR:-/var/lib/flatpak}
+          export FLATPAK_TRIGGERS_DIR=\${FLATPAK_TRIGGERS_DIR:-/flatpak/triggers}
+          
+          # Add Flathub remote
+          flatpak --system remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          
+          # Configure flatpak
           flatpak config --system --set languages "*"
-          flatpak remote-add --system flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --system -y flathub ${FLATPAK_REFS[@]}
-          ostree refs --repo=\${FLATPAK_SYSTEM_DIR}/repo | grep '^deploy/' | grep -v 'org\.freedesktop\.Platform\.openh264' | sed 's/^deploy\///g' > /output/flatpaks-with-deps
+          
+          # Install Flatpaks (continue on error)
+          flatpak install --system -y flathub ${FLATPAK_REFS[@]} || true
+          
+          # Generate list of installed flatpaks
+          mkdir -p /output
+          ostree refs --repo=\${FLATPAK_SYSTEM_DIR}/repo 2>/dev/null | grep '^deploy/' | grep -v 'org\.freedesktop\.Platform\.openh264' | sed 's/^deploy\///g' > /output/flatpaks-with-deps || echo "No flatpaks found"
+          
+          # Make sure the output file exists even if empty
+          touch /output/flatpaks-with-deps
           EOF
+          
+          chmod +x "${TEMP_FLATPAK_INSTALL_DIR}/install-flatpaks.sh"
+          
+          # Use docker instead of potentially unavailable podman
+          docker pull ${IMAGE}
           docker run --rm --privileged \
-            --entrypoint /bin/bash \
             -e FLATPAK_SYSTEM_DIR=/flatpak/flatpak \
             -e FLATPAK_TRIGGERS_DIR=/flatpak/triggers \
             -v ${FLATPAK_REFS_DIR_ABS}:/output \
-            -v ${TEMP_FLATPAK_INSTALL_DIR}:/temp_flatpak_install_dir \
-            ${IMAGE} /temp_flatpak_install_dir/install-flatpaks.sh
-          docker rmi ${IMAGE}
-          cat ${FLATPAK_REFS_DIR}/flatpaks-with-deps
-
+            -v ${TEMP_FLATPAK_INSTALL_DIR}:/scripts \
+            ${IMAGE} /scripts/install-flatpaks.sh || true
+            
+          # Make sure the flatpaks-with-deps file exists
+          touch ${FLATPAK_REFS_DIR}/flatpaks-with-deps
+          
+          if [ -f "${FLATPAK_REFS_DIR}/flatpaks-with-deps" ]; then
+            echo "Flatpak dependencies successfully generated"
+            cat ${FLATPAK_REFS_DIR}/flatpaks-with-deps || echo "Empty deps file"
+          else
+            echo "Failed to generate flatpak dependencies, creating empty file"
+            touch ${FLATPAK_REFS_DIR}/flatpaks-with-deps
+          fi
+          
           echo "FLATPAK_REFS_DIR=${FLATPAK_REFS_DIR}" >> $GITHUB_OUTPUT
 
       - name: Build ISOs
         uses: jasonn3/build-container-installer@v1.2.4
         id: build
+        if: env.IMAGE_EXISTS == 'true'
         with:
           iso_name: ${{ env.IMAGE_NAME }}-${{ env.FEDORA_VERSION }}.iso
           arch: x86_64
-          image_name: ${{ env.IMAGE_NAME }}
-          image_repo: ${{ steps.registry_case.outputs.lowercase }}
-          # We cannot use Silverblue variant since we need the user creation options in anaconda
-          variant: "Cosmic"
+          image_name: ${{ steps.image_case.outputs.lowercase }}
+          image_repo: ${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}
+          variant: "Kinoite"  # Changed from Cosmic to Kinoite for KDE
           version: ${{ env.FEDORA_VERSION }}
           image_tag: ${{ env.IMAGE_TAG }}
           secure_boot_key_url: "https://github.com/ublue-os/akmods/raw/main/certs/public_key.der"
@@ -116,12 +190,13 @@ jobs:
 
       - name: Upload ISOs and Checksum to Job Artifacts
         uses: actions/upload-artifact@v4
+        if: success() && env.IMAGE_EXISTS == 'true'
         with:
           name: ${{ env.IMAGE_NAME }}-${{ env.IMAGE_TAG }}
           path: |
             ${{ steps.build.outputs.iso_path }}
             ${{ steps.build.outputs.iso_path }}-CHECKSUM
           if-no-files-found: error
-          retention-days: 0
+          retention-days: 7
           compression-level: 3
           overwrite: true

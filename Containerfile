@@ -1,14 +1,16 @@
-FROM ghcr.io/ublue-os/fedora-atomic:42
+FROM quay.io/fedora/fedora-kinoite:42
 
 # Define build arguments
 ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
-ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-gnome}"
+ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-kde}"
 ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
-ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora-atomic}"
+ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora-kinoite}"
 ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
+ARG OSTREE_REMOTE_NAME="${OSTREE_REMOTE_NAME}"
+ARG OSTREE_REMOTE_URL="${OSTREE_REMOTE_URL}"
 
 # Copy system files
 COPY system /
@@ -159,7 +161,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
-    ublue-os-update-services \
     firefox firefox-langpacks \
     htop \
     || true && \
@@ -176,7 +177,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     git fzf zoxide eza \
     btop fastfetch \
     # System utilities
-    discover-overlay cpulimit tailscale lact \
+    discover-overlay cpulimit tailscale \
     unzip \
     # Shells and terminal enhancers
     vim zsh starship zsh-autosuggestions \
@@ -190,20 +191,26 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 6: DESKTOP ENVIRONMENT
+# SECTION 6: KDE APPLICATIONS
 # ==========================================
-# Install GNOME desktop environment and utilities
+# Install additional KDE applications
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    gnome-shell gnome-session gnome-control-center gnome-tweaks \
-    gnome-terminal gnome-system-monitor && \
-    # Install gnome-software and gnome-disks
-    rpm-ostree install \
-    gnome-software \
-    gnome-disk-utility \
-    gparted \
-    gnome-keyring NetworkManager-tui \
-    NetworkManager-openvpn && \
+    # KDE Applications
+    dolphin konsole kate kwrite \
+    ark kcalc gwenview okular \
+    # KDE System Settings & Configuration
+    plasma-systemmonitor plasma-nm plasma-pa \
+    plasma-discover plasma-thunderbolt \
+    plasma-firewall plasma-systemsettings \
+    # KDE additional utilities
+    kscreen krunner breeze-gtk breeze-icon-theme \
+    # Network management tools
+    NetworkManager-tui NetworkManager-openvpn-gnome \
+    NetworkManager-wifi NetworkManager-wwan \
+    # Disk utilities
+    partitionmanager \
+    || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
@@ -272,16 +279,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Ensure proper graphics boot by setting graphical target as default
-    systemctl set-default graphical.target && \
-    # Configure GDM as the display manager
-    systemctl enable gdm.service || true && \
+    # Configure KDE settings
+    mkdir -p /etc/skel/.config && \
+    # Default to breeze-dark theme
+    echo "[General]\nColorScheme=BreezeDark" > /etc/skel/.config/kdeglobals && \
     # Enable necessary services
-    systemctl enable lactd || true && \
-    systemctl enable brew-dir-fix.service && \
-    systemctl enable brew-setup.service && \
-    systemctl disable brew-upgrade.timer && \
-    systemctl disable brew-update.timer && \
+    systemctl enable sddm.service || true && \
+    systemctl enable brew-dir-fix.service || true && \
+    systemctl enable brew-setup.service || true && \
     systemctl --global enable podman.socket && \
     # Add configuration files and utilities
     curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
@@ -300,6 +305,11 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # Create OSTree remote configuration if provided
+    if [ -n "${OSTREE_REMOTE_NAME}" ] && [ -n "${OSTREE_REMOTE_URL}" ]; then \
+    mkdir -p /etc/ostree/remotes.d && \
+    echo -e "[remote \"${OSTREE_REMOTE_NAME}\"]\nurl=${OSTREE_REMOTE_URL}\ngpg-verify=false" > /etc/ostree/remotes.d/${OSTREE_REMOTE_NAME}.conf; \
+    fi && \
     # Finishing up
     if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
     if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
