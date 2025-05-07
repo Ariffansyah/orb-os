@@ -215,24 +215,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 7: HOMEBREW SETUP - FIXED VERSION
-# ==========================================
-# Create Homebrew installation files instead of direct installation
-
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    echo "Will install Homebrew inside /home/linuxbrew" && \
-    touch /.dockerenv && \
-    mkdir -p /var/home && \
-    mkdir -p /var/roothome && \
-    curl -Lo /tmp/brew-install https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
-    chmod +x /tmp/brew-install && \
-    /tmp/brew-install && \
-    tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 8: PROGRAMMING LANGUAGES
+# SECTION 7: PROGRAMMING LANGUAGES
 # ==========================================
 # Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -250,7 +233,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 9: FASTFETCH SETUP
+# SECTION 8: FASTFETCH SETUP
 # ==========================================
 # Ensure fastfetch is properly installed and configured
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -260,7 +243,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 10: NEOVIM INSTALLATION
+# SECTION 9: NEOVIM INSTALLATION
 # ==========================================
 # Ensure neovim is properly installed
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -274,7 +257,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 11: FINAL CONFIGURATION
+# SECTION 10: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
