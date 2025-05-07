@@ -24,6 +24,8 @@ env:
   BASE_IMAGE_NAME: "cosmic-atomic"
   BASE_IMAGE_FLAVOR: "main"
   DEFAULT_TAG: "latest"
+  OSTREE_REMOTE_NAME: "ghcr-orb-os"
+  OSTREE_REMOTE_URL: "ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest"
 
 
 concurrency:
@@ -184,6 +186,8 @@ jobs:
           --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
           --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
+          --build-arg OSTREE_REMOTE_NAME=${{ env.OSTREE_REMOTE_NAME }} \
+          --build-arg OSTREE_REMOTE_URL=${{ env.OSTREE_REMOTE_URL }} \
           --tag ${{ env.IMAGE_NAME }}:latest .
 
       # Deleting unused images after build
@@ -246,6 +250,12 @@ jobs:
         with:
           string: ${{ env.IMAGE_REGISTRY }}
 
+      - name: Lowercase Owner
+        id: owner_case
+        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
+        with:
+          string: ${{ github.repository_owner }}
+
       - name: Lowercase Image
         id: image_case
         uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
@@ -266,7 +276,7 @@ jobs:
           echo "Pushing original image with multiple tags"
           
           # Push with different tags
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
           
           # Tag and push latest
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
@@ -281,6 +291,18 @@ jobs:
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
+
+      - name: Generate OSTree Remote Configuration
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          cat > ostree-remote.conf << EOF
+          [remote "${{ env.OSTREE_REMOTE_NAME }}"]
+          url=${{ env.OSTREE_REMOTE_URL }}
+          gpg-verify=false
+          EOF
+          
+          echo "Generated OSTree remote configuration:"
+          cat ostree-remote.conf
 
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
