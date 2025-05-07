@@ -263,10 +263,13 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Update system branding from Kinoite to Orb OS
+    # Update system branding more thoroughly from Kinoite to Orb OS
     sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
     sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS KDE"/' /etc/os-release && \
     sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
+    sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
+    # Ensure COSMIC references are also removed
+    sed -i 's/COSMIC/Orb OS/g' /etc/os-release && \
     # Add custom variant information
     echo "VARIANT_ID=kde" >> /etc/os-release && \
     echo "VARIANT=KDE" >> /etc/os-release && \
@@ -277,10 +280,34 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "Orb OS KDE (\l)" > /etc/issue && \
     echo "Orb OS KDE" > /etc/issue.net && \
     echo "Welcome to Orb OS KDE!" > /etc/motd && \
+    # Create /etc/orb-os-release as a more permanent branding file
+    cp /etc/os-release /etc/orb-os-release && \
+    # Write a simple branding fix script directly
+    mkdir -p /usr/bin && \
+    echo '#!/bin/bash' > /usr/bin/fix-orb-branding && \
+    echo 'if [ -f /etc/orb-os-release ]; then' >> /usr/bin/fix-orb-branding && \
+    echo '    cp /etc/orb-os-release /etc/os-release' >> /usr/bin/fix-orb-branding && \
+    echo 'fi' >> /usr/bin/fix-orb-branding && \
+    chmod +x /usr/bin/fix-orb-branding && \
+    # Create branding service
+    mkdir -p /etc/systemd/system && \
+    echo '[Unit]' > /etc/systemd/system/orb-branding.service && \
+    echo 'Description=Fix Orb OS branding on boot' >> /etc/systemd/system/orb-branding.service && \
+    echo 'After=network.target' >> /etc/systemd/system/orb-branding.service && \
+    echo '' >> /etc/systemd/system/orb-branding.service && \
+    echo '[Service]' >> /etc/systemd/system/orb-branding.service && \
+    echo 'Type=oneshot' >> /etc/systemd/system/orb-branding.service && \
+    echo 'ExecStart=/usr/bin/fix-orb-branding' >> /etc/systemd/system/orb-branding.service && \
+    echo '' >> /etc/systemd/system/orb-branding.service && \
+    echo '[Install]' >> /etc/systemd/system/orb-branding.service && \
+    echo 'WantedBy=multi-user.target' >> /etc/systemd/system/orb-branding.service && \
+    # Enable the service
+    systemctl enable orb-branding.service || true && \
     # Configure KDE settings
     mkdir -p /etc/skel/.config && \
     # Default to breeze-dark theme
-    echo "[General]\nColorScheme=BreezeDark" > /etc/skel/.config/kdeglobals && \
+    echo "[General]" > /etc/skel/.config/kdeglobals && \
+    echo "ColorScheme=BreezeDark" >> /etc/skel/.config/kdeglobals && \
     # Enable necessary services
     systemctl enable sddm.service || true && \
     systemctl enable brew-setup.service || true && \
@@ -302,6 +329,15 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # Create boot persistence hook
+    mkdir -p /usr/lib/ostree/prepare-root.d && \
+    echo '#!/bin/bash' > /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
+    echo 'if [ -f /usr/share/defaults/etc/orb-os-release ]; then' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
+    echo '    cp /usr/share/defaults/etc/orb-os-release /etc/os-release' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
+    echo 'elif [ -f /etc/orb-os-release ]; then' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
+    echo '    cp /etc/orb-os-release /etc/os-release' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
+    echo 'fi' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
+    chmod +x /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
     # Finishing up
     if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
     if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
