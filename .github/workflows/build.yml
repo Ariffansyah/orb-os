@@ -20,7 +20,7 @@ env:
   FEDORA_VERSION: "42"
   IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
   PULL_IMAGE_REGISTRY: "quay.io"
-  BASE_IMAGE_NAME: "fedora"
+  BASE_IMAGE_NAME: "kinoite"
   BASE_IMAGE_FLAVOR: "fedora-kinoite"
   DEFAULT_TAG: "latest"
 
@@ -261,28 +261,28 @@ jobs:
 
       # Skip rechunk and push the original image
       # This is a simpler approach that should work reliably
+      # This is the section that needs to be fixed
       - name: Push Original Image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           echo "Pushing original image with multiple tags"
-          
-          # Push with different tags
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          
+    
+          # Fix the registry path here - remove the duplicate username
+          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+    
           # Tag and push latest
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
           sudo podman push $REGISTRY_PATH:latest
           echo "Pushed $REGISTRY_PATH:latest"
-          
+    
           # Tag and push date-based tags
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
-          
+    
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
-
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
       # using Cosign and save the private key as a repository secret in Github for this workflow
