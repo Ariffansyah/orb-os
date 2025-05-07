@@ -228,7 +228,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     chmod +x /tmp/brew-install && \
     /tmp/brew-install && \
     tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
