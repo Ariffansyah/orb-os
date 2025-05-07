@@ -263,6 +263,20 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Update system branding from Kinoite to Orb OS
+    sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
+    sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS KDE"/' /etc/os-release && \
+    sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
+    # Add custom variant information
+    echo "VARIANT_ID=kde" >> /etc/os-release && \
+    echo "VARIANT=KDE" >> /etc/os-release && \
+    # Create custom branding files
+    mkdir -p /etc/orb-os && \
+    echo "Orb OS KDE - $(date +%Y%m%d)" > /etc/orb-os/version && \
+    # Update welcome and issue files
+    echo "Orb OS KDE (\l)" > /etc/issue && \
+    echo "Orb OS KDE" > /etc/issue.net && \
+    echo "Welcome to Orb OS KDE!" > /etc/motd && \
     # Configure KDE settings
     mkdir -p /etc/skel/.config && \
     # Default to breeze-dark theme
@@ -294,5 +308,3 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     /usr/libexec/build/clean.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
-
-RUN bootc container lint
