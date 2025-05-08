@@ -19,9 +19,9 @@ env:
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/120078124?s=200&v=4"  # You should put your own image here so that you get a fancy profile image on https://artifacthub.io/!
   FEDORA_VERSION: "42"
   IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
-  PULL_IMAGE_REGISTRY: "quay.io"
-  BASE_IMAGE_NAME: "fedora"
-  BASE_IMAGE_FLAVOR: "fedora-kinoite"
+  PULL_IMAGE_REGISTRY: "ghcr.io"  # The registry to pull the base image from
+  BASE_IMAGE_NAME: "ublue-os"  # The name of the base image
+  BASE_IMAGE_FLAVOR: "base-main"
   DEFAULT_TAG: "latest"
 
 concurrency:
@@ -170,7 +170,7 @@ jobs:
           # Build the main image
           sudo buildah build \
           --build-arg IMAGE_NAME=${{ env.IMAGE_NAME }} \
-          --build-arg IMAGE_FLAVOR=kde \
+          --build-arg IMAGE_FLAVOR=hyprland \
           --build-arg IMAGE_VENDOR=${{ github.repository_owner }} \
           --build-arg BASE_IMAGE_NAME=${{ env.BASE_IMAGE_NAME }} \
           --build-arg BASE_IMAGE_FLAVOR=${{ env.BASE_IMAGE_FLAVOR }} \

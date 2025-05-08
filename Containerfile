@@ -1,9 +1,9 @@
-FROM quay.io/fedora/fedora-kinoite:42
+FROM ghcr.io/ublue-os/base-main:42
 
 # Define build arguments
 ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
-ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-kde}"
+ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-hyprland}"
 ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
 ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora-kinoite}"
 ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
@@ -96,253 +96,258 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add Hyprland COPR repository
+    curl -Lo /etc/yum.repos.d/_copr_solopasha-hyprland.repo \
+    https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/repo/fedora-"${FEDORA_MAJOR_VERSION}"/solopasha-hyprland-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add RPM Fusion repositories
+    dnf install -y \
+    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
+    https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 3: CORE UTILITIES
+# SECTION 3: HYPRLAND & DEPENDENCIES INSTALLATION
 # ==========================================
-# Install basic terminal utilities
+# Install Hyprland and dependencies based on the hyprdots repository
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    # Terminal utilities
-    git vim zsh starship tmux \
-    # Terminal emulators
-    ghostty ptyxis \
-    || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# Install Mesa drivers and multimedia components from Fedora repositories
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install standard Fedora Mesa packages
-    rpm-ostree install \
-    mesa-dri-drivers \
-    mesa-dri-drivers.i686 \
-    mesa-libGL \
-    mesa-libEGL \
-    mesa-libgbm \
-    mesa-libglapi \
-    mesa-vulkan-drivers \
-    mesa-va-drivers \
-    mesa-vdpau-drivers \
-    xorg-x11-drv-libinput \
-    xorg-x11-server-Xwayland \
-    # Install PipeWire and related packages
-    pipewire \
-    pipewire-alsa \
-    pipewire-gstreamer \
-    pipewire-jack-audio-connection-kit \
-    pipewire-jack-audio-connection-kit-libs \
-    pipewire-libs \
-    pipewire-pulseaudio \
-    pipewire-utils \
-    pipewire-plugin-libcamera \
-    # Install Bluetooth support
+    # Core Hyprland packages
+    hyprland \
+    cliphist \
+    xdg-desktop-portal-hyprland \
+    swww \
+    grimblast \
+    # WM utilities
+    wl-clipboard \
+    go \
+    gtk3-devel \
+    xdg-utils \
+    swappy \
+    rust \
+    cargo \
+    # Fonts and themes
+    google-noto-emoji-fonts \
+    google-noto-emoji-color-fonts \
+    # Audio and sensors
+    pamixer \
+    alsa-ucm \
+    alsa-firmware \
+    alsa-sof-firmware \
+    lm_sensors \
+    cava \
+    # Bluetooth
     bluez \
-    bluez-obexd \
-    bluez-cups \
-    bluez-libs \
-    # Enable RPM Fusion repos temporarily for multimedia components
-    && sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/rpmfusion-*.repo 2>/dev/null || true \
-    && rpm-ostree install \
-    libbluray \
-    libbluray-utils \
-    # Disable RPM Fusion repos again
-    && sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo 2>/dev/null || true \
-    && /usr/libexec/build/clean.sh \
-    && ostree container commit
-
-# ==========================================
-# SECTION 4: PACKAGE REMOVALS
-# ==========================================
-# Remove unwanted packages
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree override remove \
-    firefox firefox-langpacks \
-    htop \
-    || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 5: DEVELOPER TOOLS & UTILITIES
-# ==========================================
-# Install developer tools and additional utilities
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    # Productivity tools
-    git fzf zoxide eza \
-    btop fastfetch \
+    bluez-tools \
+    blueman \
+    # Network
+    NetworkManager-wifi \
+    network-manager-applet \
+    # Python dependencies
+    python3-cairo \
+    python-cairo \
+    pipx \
     # System utilities
-    discover-overlay cpulimit tailscale \
-    unzip \
-    # Shells and terminal enhancers
-    vim zsh starship zsh-autosuggestions \
-    ghostty ptyxis tmux \
-    # Fonts
-    cascadia-code-nf-fonts cascadia-mono-nf-fonts nerd-fonts \
-    # Editors
-    neovim \
+    polkit-qt6-1 \
+    lsd \
+    neofetch \
+    # Handle NVIDIA detection automatically during first boot
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 6: KDE APPLICATIONS
+# SECTION 4: HYPRLAND APPS & ENVIRONMENT
 # ==========================================
-# Install additional KDE applications
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    # KDE Applications
-    dolphin konsole kate kwrite \
-    ark kcalc gwenview okular \
-    # KDE System Settings & Configuration
-    plasma-systemmonitor plasma-nm plasma-pa \
-    plasma-discover plasma-thunderbolt \
-    plasma-firewall plasma-systemsettings \
-    # KDE additional utilities
-    kscreen breeze-gtk breeze-icon-theme \
-    # Network management tools
-    NetworkManager-tui NetworkManager-openvpn-gnome \
-    NetworkManager-wifi NetworkManager-wwan \
-    # KFFind for file searching - alternative to krunner for some functionality
-    kf5-kfind \
-    # Use KDE Partition Manager if available, otherwise use GParted
-    gparted \
+    # Core apps
+    pipewire \
+    wireplumber \
+    brightnessctl \
+    qt6-qtwayland \
+    dunst \
+    rofi-wayland \
+    swayidle \
+    waybar \
+    wlogout \
+    grim \
+    slurp \
+    # System integration
+    polkit-kde \
+    xdg-desktop-portal-gtk \
+    # Graphics and media
+    ImageMagick \
+    pavucontrol \
+    # QT theming
+    qt6-qtbase-devel \
+    ffmpegthumbs \
+    qt5-qtimageformats \
+    qt6-qtbase \
+    kvantum \
+    qt5ct \
+    qt6ct \
+    # File manager and utilities
+    parallel \
+    dolphin \
+    kde-cli-tools \
+    sddm \
+    fastfetch \
     || true && \
+    # Special cases for Hyprland environment
+    if command -v pipx &> /dev/null; then \
+    pipx install --global hyprshade || true; \
+    fi && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 7: PROGRAMMING LANGUAGES
+# SECTION 5: HYPRDOTS CONFIGURATION
 # ==========================================
-# Install programming languages and development tools
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    # JavaScript/Node.js
-    nodejs npm \
-    # Java
-    java-latest-openjdk \
-    # Go
-    golang \
-    # Rust
-    rust cargo \
-    # C/C++
-    gcc gcc-c++ glibc-devel \
-    # Python
-    python3 python3-pip python3-devel \
-    || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 8: FASTFETCH SETUP
-# ==========================================
-# Ensure fastfetch is properly installed and configured
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install fastfetch
-    rpm-ostree install fastfetch && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 9: NEOVIM INSTALLATION
-# ==========================================
-# Ensure neovim is properly installed
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install neovim specifically
-    rpm-ostree install neovim && \
-    # Verify the installation
-    rpm -q neovim && \
-    which nvim || echo "Neovim not found in PATH" && \
-    # Clean up
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 10: FINAL CONFIGURATION
-# ==========================================
-# Copy override files and configure the system
-COPY override /
-
-RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Update system branding more thoroughly from Kinoite to Orb OS
-    sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
-    sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS KDE"/' /etc/os-release && \
-    sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
-    sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
-    # Add custom variant information
-    echo "VARIANT_ID=kde" >> /etc/os-release && \
-    echo "VARIANT=KDE" >> /etc/os-release && \
-    # Create custom branding files
-    mkdir -p /etc/orb-os && \
-    echo "Orb OS KDE - $(date +%Y%m%d)" > /etc/orb-os/version && \
-    # Update welcome and issue files
-    echo "Orb OS KDE (\l)" > /etc/issue && \
-    echo "Orb OS KDE" > /etc/issue.net && \
-    echo "Welcome to Orb OS KDE!" > /etc/motd && \
-    # Create /etc/orb-os-release as a more permanent branding file
-    cp /etc/os-release /etc/orb-os-release && \
-    # Write a simple branding fix script directly
-    mkdir -p /usr/bin && \
-    echo '#!/bin/bash' > /usr/bin/fix-orb-branding && \
-    echo 'if [ -f /etc/orb-os-release ]; then' >> /usr/bin/fix-orb-branding && \
-    echo '    cp /etc/orb-os-release /etc/os-release' >> /usr/bin/fix-orb-branding && \
-    echo 'fi' >> /usr/bin/fix-orb-branding && \
-    chmod +x /usr/bin/fix-orb-branding && \
-    # Create branding service
-    mkdir -p /etc/systemd/system && \
-    echo '[Unit]' > /etc/systemd/system/orb-branding.service && \
-    echo 'Description=Fix Orb OS branding on boot' >> /etc/systemd/system/orb-branding.service && \
-    echo 'After=network.target' >> /etc/systemd/system/orb-branding.service && \
-    echo '' >> /etc/systemd/system/orb-branding.service && \
-    echo '[Service]' >> /etc/systemd/system/orb-branding.service && \
-    echo 'Type=oneshot' >> /etc/systemd/system/orb-branding.service && \
-    echo 'ExecStart=/usr/bin/fix-orb-branding' >> /etc/systemd/system/orb-branding.service && \
-    echo '' >> /etc/systemd/system/orb-branding.service && \
-    echo '[Install]' >> /etc/systemd/system/orb-branding.service && \
-    echo 'WantedBy=multi-user.target' >> /etc/systemd/system/orb-branding.service && \
-    # Enable the service
-    systemctl enable orb-branding.service || true && \
-    # Configure KDE settings
+# Clone and set up the hyprdots configuration
+RUN mkdir -p /tmp/hyprdots && \
+    cd /tmp/hyprdots && \
+    # Clone hyprdots configurations
+    git clone https://github.com/Senshi111/hyprland-hyprdots-files.git && \
+    # Create directory structure for config
     mkdir -p /etc/skel/.config && \
-    # Default to breeze-dark theme
-    echo "[General]" > /etc/skel/.config/kdeglobals && \
-    echo "ColorScheme=BreezeDark" >> /etc/skel/.config/kdeglobals && \
-    # Enable necessary services
+    # Copy the main configuration to skel for new users
+    cd hyprland-hyprdots-files/Theme && \
+    cp -r * /etc/skel/.config/ && \
+    # Set up Scripts directory specifically
+    mkdir -p /etc/skel/.config/hypr/scripts && \
+    cp -r Scripts/* /etc/skel/.config/hypr/scripts/ && \
+    chmod +x /etc/skel/.config/hypr/scripts/*.sh && \
+    # Set proper permissions
+    chown -R root:root /etc/skel/.config && \
+    # Cleanup
+    rm -rf /tmp/hyprdots && \
+    ostree container commit
+
+# ==========================================
+# SECTION 6: ADDITIONAL CONFIG & BOOT SETUP
+# ==========================================
+# Configure SDDM, autostart, and environment variables
+RUN mkdir -p /etc/skel/.config/hypr && \
+    # Create autostart file
+    echo "# Autostart applications" > /etc/skel/.config/hypr/autostart.sh && \
+    echo "#!/bin/bash" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start waybar" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "waybar &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start notification daemon" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "dunst &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start network manager applet" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "nm-applet --indicator &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start wallpaper daemon" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "swww init &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Clipboard manager" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "wl-clipboard-history -t &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "clipman restore &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Authentication agent" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "/usr/libexec/polkit-kde-authentication-agent-1 &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    # Make autostart executable
+    chmod +x /etc/skel/.config/hypr/autostart.sh && \
+    # Add environment variables to ensure proper Wayland integration
+    mkdir -p /etc/environment.d && \
+    echo "# Hyprland environment variables" > /etc/environment.d/90-hyprland.conf && \
+    echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-hyprland.conf && \
+    echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-hyprland.conf && \
+    echo "XDG_CURRENT_DESKTOP=Hyprland" >> /etc/environment.d/90-hyprland.conf && \
+    echo "XDG_SESSION_DESKTOP=Hyprland" >> /etc/environment.d/90-hyprland.conf && \
+    echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-hyprland.conf && \
+    echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-hyprland.conf && \
+    echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-hyprland.conf && \
+    echo "QT_AUTO_SCREEN_SCALE_FACTOR=1" >> /etc/environment.d/90-hyprland.conf && \
+    echo "SDL_VIDEODRIVER=wayland" >> /etc/environment.d/90-hyprland.conf && \
+    echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-hyprland.conf && \
+    echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-hyprland.conf && \
+    # Setup SDDM
+    mkdir -p /etc/sddm.conf.d && \
+    echo "[General]" > /etc/sddm.conf.d/10-wayland.conf && \
+    echo "DisplayServer=wayland" >> /etc/sddm.conf.d/10-wayland.conf && \
+    echo "GreeterEnvironment=QT_QPA_PLATFORM=wayland" >> /etc/sddm.conf.d/10-wayland.conf && \
+    # Enable SDDM
     systemctl enable sddm.service || true && \
-    systemctl enable brew-setup.service || true && \
-    systemctl --global enable podman.socket && \
-    # Add configuration files and utilities
-    curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
-    curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
-    curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
-    curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Disable COPR repositories to speed up syncing
-    sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
-    # Disable other repositories for faster sync
-    for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
-    if [ -f "/etc/yum.repos.d/$repo" ]; then \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
-    fi \
-    done && \
-    # Setup Flatpak
-    mkdir -p /etc/flatpak/remotes.d && \
-    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Create boot persistence hook
-    mkdir -p /usr/lib/ostree/prepare-root.d && \
-    echo '#!/bin/bash' > /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    echo 'if [ -f /usr/share/defaults/etc/orb-os-release ]; then' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    echo '    cp /usr/share/defaults/etc/orb-os-release /etc/os-release' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    echo 'elif [ -f /etc/orb-os-release ]; then' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    echo '    cp /etc/orb-os-release /etc/os-release' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    echo 'fi' >> /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    chmod +x /usr/lib/ostree/prepare-root.d/20-preserve-orb-branding.sh && \
-    # Finishing up
+    # Create Hyprland session file
+    mkdir -p /usr/share/wayland-sessions && \
+    echo "[Desktop Entry]" > /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Name=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Comment=An efficient dynamic tiling Wayland compositor" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Exec=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Type=Application" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "DesktopNames=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "X-KDE-PluginInfo-Version=1.0" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    # Ensure files are accessible
+    chmod 755 /usr/share/wayland-sessions/hyprland.desktop && \
+    # Final cleanup
     if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
     if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
     /usr/libexec/build/clean.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
+
+# ==========================================
+# SECTION 7: FIRST-BOOT SETUP SCRIPT
+# ==========================================
+# Create a first-boot script to complete setup
+RUN mkdir -p /usr/lib/systemd/system && \
+    echo "[Unit]" > /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "Description=Configure Hyprdots on First Boot" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "After=network.target" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "[Service]" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "Type=oneshot" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "ExecStart=/usr/bin/hyprdots-firstboot.sh" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "[Install]" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    mkdir -p /usr/bin && \
+    echo "#!/bin/bash" > /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "fi" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Create directories for user themes" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-2.0" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-3.0" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-4.0" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Disable this service after first run" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "systemctl disable hyprdots-firstboot.service" >> /usr/bin/hyprdots-firstboot.sh && \
+    chmod +x /usr/bin/hyprdots-firstboot.sh && \
+    systemctl enable hyprdots-firstboot.service && \
+    ostree container commit
+
+# Copy override files and configure the system
+COPY override /
+
+# Final OS branding
+RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Update system branding more thoroughly from Kinoite to Orb OS
+    sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
+    sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS Hyprland Hyprdots"/' /etc/os-release && \
+    sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
+    sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
+    # Add custom variant information
+    echo "VARIANT_ID=hyprland-hyprdots" >> /etc/os-release && \
+    echo "VARIANT=Hyprland-Hyprdots" >> /etc/os-release && \
+    # Create custom branding files
+    mkdir -p /etc/orb-os && \
+    echo "Orb OS Hyprland Hyprdots - $(date +%Y%m%d)" > /etc/orb-os/version && \
+    # Update welcome and issue files
+    echo "Orb OS Hyprland Hyprdots (\l)" > /etc/issue && \
+    echo "Orb OS Hyprland Hyprdots" > /etc/issue.net && \
+    echo "Welcome to Orb OS Hyprland Hyprdots!" > /etc/motd && \
+    # Copy branding to permanent location
+    cp /etc/os-release /etc/orb-os-release
