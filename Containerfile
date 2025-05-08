@@ -208,8 +208,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN mkdir -p /tmp/hyprdots && \
     cd /tmp/hyprdots && \
     # Clone hyprdots configurations
-    git clone https://github.com/Ariffansyah/fedora-hyprland-hyprdots.git \
-    cd /fedora-hyprland-hyprdots/build-hyprland-and-apps && \
+    git clone https://github.com/Ariffansyah/fedora-hyprland-hyprdots.git && \
+    cd fedora-hyprland-hyprdots/build-hyprland-and-apps && \
     ./install_all.sh && \
     # Cleanup
     rm -rf /tmp/hyprdots && \
@@ -285,7 +285,38 @@ RUN mkdir -p /etc/skel/.config/hypr && \
     ostree container commit
 
 # ==========================================
-# SECTION 7: FIRST-BOOT SETUP SCRIPT
+# SECTION 7: KDE-LIKE SDDM THEME SETUP
+# ==========================================
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install SDDM KDE theme dependencies
+    rpm-ostree install \
+    sddm-kcm \
+    sddm-breeze \
+    breeze-gtk \
+    breeze-icon-theme \
+    || true && \
+    # Configure SDDM to use Breeze theme
+    mkdir -p /etc/sddm.conf.d && \
+    echo "[Theme]" > /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "Current=breeze" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "CursorTheme=breeze_cursors" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "Font=Noto Sans" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "[Users]" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "MaximumUid=60000" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "MinimumUid=1000" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "[X11]" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "[Wayland]" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 8: FIRST-BOOT SETUP SCRIPT
 # ==========================================
 # Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
@@ -303,6 +334,21 @@ RUN mkdir -p /usr/lib/systemd/system && \
     mkdir -p /usr/bin && \
     echo "#!/bin/bash" > /usr/bin/hyprdots-firstboot.sh && \
     echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Configure SDDM to look like KDE" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "if [ -d \"/usr/share/sddm/themes/breeze\" ]; then" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"Configuring SDDM with KDE Breeze theme...\"" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    # Make sure SDDM uses the breeze theme" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    mkdir -p /etc/sddm.conf.d" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"[Theme]\" > /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"Current=breeze\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"CursorTheme=breeze_cursors\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    # Copy KDE Plasma wallpaper for SDDM background if available" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    if [ -d \"/usr/share/wallpapers/Next\" ]; then" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "        cp -r /usr/share/wallpapers/Next /usr/share/sddm/themes/breeze/" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "        echo \"Background=/usr/share/sddm/themes/breeze/Next/contents/images/1920x1080.png\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    fi" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "fi" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
     echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/hyprdots-firstboot.sh && \
     echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/hyprdots-firstboot.sh && \
     echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/hyprdots-firstboot.sh && \
@@ -319,6 +365,50 @@ RUN mkdir -p /usr/lib/systemd/system && \
     chmod +x /usr/bin/hyprdots-firstboot.sh && \
     systemctl enable hyprdots-firstboot.service && \
     ostree container commit
+
+# ==========================================
+# SECTION 9: COMPLETE SDDM CONFIGURATION
+# ==========================================
+# Create complete SDDM configuration with KDE look and feel
+RUN echo "[Autologin]" > /etc/sddm.conf && \
+    echo "# Autologin is disabled by default" >> /etc/sddm.conf && \
+    echo "Relogin=false" >> /etc/sddm.conf && \
+    echo "Session=" >> /etc/sddm.conf && \
+    echo "User=" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[General]" >> /etc/sddm.conf && \
+    echo "DisplayServer=wayland" >> /etc/sddm.conf && \
+    echo "GreeterEnvironment=QT_QPA_PLATFORM=wayland" >> /etc/sddm.conf && \
+    echo "HaltCommand=/usr/bin/systemctl poweroff" >> /etc/sddm.conf && \
+    echo "Numlock=on" >> /etc/sddm.conf && \
+    echo "RebootCommand=/usr/bin/systemctl reboot" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[Theme]" >> /etc/sddm.conf && \
+    echo "Current=breeze" >> /etc/sddm.conf && \
+    echo "CursorTheme=breeze_cursors" >> /etc/sddm.conf && \
+    echo "Font=Noto Sans,10,-1,5,50,0,0,0,0,0" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[Users]" >> /etc/sddm.conf && \
+    echo "DefaultPath=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> /etc/sddm.conf && \
+    echo "HideShells=" >> /etc/sddm.conf && \
+    echo "HideUsers=" >> /etc/sddm.conf && \
+    echo "MaximumUid=60000" >> /etc/sddm.conf && \
+    echo "MinimumUid=1000" >> /etc/sddm.conf && \
+    echo "RememberLastSession=true" >> /etc/sddm.conf && \
+    echo "RememberLastUser=true" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[Wayland]" >> /etc/sddm.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf && \
+    echo "SessionCommand=/usr/share/sddm/scripts/wayland-session" >> /etc/sddm.conf && \
+    echo "SessionDir=/usr/share/wayland-sessions" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[X11]" >> /etc/sddm.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf && \
+    echo "ServerPath=/usr/bin/X" >> /etc/sddm.conf && \
+    echo "SessionCommand=/usr/share/sddm/scripts/Xsession" >> /etc/sddm.conf && \
+    echo "SessionDir=/usr/share/xsessions" >> /etc/sddm.conf && \
+    echo "XauthPath=/usr/bin/xauth" >> /etc/sddm.conf && \
+    echo "XephyrPath=/usr/bin/Xephyr" >> /etc/sddm.conf
 
 # Copy override files and configure the system
 COPY override /

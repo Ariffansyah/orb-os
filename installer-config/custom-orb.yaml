@@ -1,7 +1,0 @@
-branding:
-  displayName: Orb OS KDE
-  productName: Orb OS
-  productUrl: https://github.com/Ariffansyah/orb-os
-  productLogo: "/usr/share/anaconda/pixmaps/sidebar-logo.png"
-  productIcon: "/usr/share/pixmaps/system-logo-white.png"
-  bootloaderEntryName: "Orb OS"
