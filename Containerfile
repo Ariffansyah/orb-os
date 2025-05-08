@@ -226,6 +226,10 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     java-latest-openjdk \
     # Go
     golang \
+    # Rust
+    rust cargo \
+    # C/C++
+    gcc gcc-c++ glibc-devel \
     # Python
     python3 python3-pip python3-devel \
     || true && \
@@ -268,8 +272,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS KDE"/' /etc/os-release && \
     sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
     sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
-    # Ensure COSMIC references are also removed
-    sed -i 's/COSMIC/Orb OS/g' /etc/os-release && \
     # Add custom variant information
     echo "VARIANT_ID=kde" >> /etc/os-release && \
     echo "VARIANT=KDE" >> /etc/os-release && \
