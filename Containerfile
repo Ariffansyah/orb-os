@@ -208,18 +208,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN mkdir -p /tmp/hyprdots && \
     cd /tmp/hyprdots && \
     # Clone hyprdots configurations
-    git clone https://github.com/Senshi111/hyprland-hyprdots-files.git && \
-    # Create directory structure for config
-    mkdir -p /etc/skel/.config && \
-    # Copy the main configuration to skel for new users
-    cd hyprland-hyprdots-files/Theme && \
-    cp -r * /etc/skel/.config/ && \
-    # Set up Scripts directory specifically
-    mkdir -p /etc/skel/.config/hypr/scripts && \
-    cp -r Scripts/* /etc/skel/.config/hypr/scripts/ && \
-    chmod +x /etc/skel/.config/hypr/scripts/*.sh && \
-    # Set proper permissions
-    chown -R root:root /etc/skel/.config && \
+    git clone https://github.com/Ariffansyah/fedora-hyprland-hyprdots.git \
+    cd /fedora-hyprland-hyprdots/build-hyprland-and-apps && \
+    ./install_all.sh && \
     # Cleanup
     rm -rf /tmp/hyprdots && \
     ostree container commit
