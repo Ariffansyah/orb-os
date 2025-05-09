@@ -97,9 +97,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Add System76 COSMIC repository
-    curl -Lo /etc/yum.repos.d/system76-cosmic.repo \
-    https://apt.system76.com/cosmic-fedora-${FEDORA_MAJOR_VERSION}.repo && \
+    # Add System76 COSMIC repository (manual creation since direct URL doesn't work)
+    echo "[system76-cosmic]" > /etc/yum.repos.d/system76-cosmic.repo && \
+    echo "name=System76 COSMIC for Fedora \$releasever" >> /etc/yum.repos.d/system76-cosmic.repo && \
+    echo "baseurl=https://download.opensuse.org/repositories/home:/system76:/cosmic/Fedora_\$releasever/" >> /etc/yum.repos.d/system76-cosmic.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/system76-cosmic.repo && \
+    echo "gpgcheck=0" >> /etc/yum.repos.d/system76-cosmic.repo && \
     # Add NodeJS repository
     curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
     # Add PostgreSQL repository
@@ -118,21 +121,27 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     # Core COSMIC packages
+    cosmic-desktop \
     cosmic-session \
     cosmic-applets \
     cosmic-panel \
     cosmic-launcher \
     cosmic-settings \
+    cosmic-workspaces \
+    || true && \
+    rpm-ostree install \
+    # More COSMIC components
     cosmic-greeter \
     cosmic-bg \
     cosmic-comp \
     cosmic-osd \
     cosmic-notifications \
     cosmic-applibrary \
-    cosmic-workspaces-epoch \
     cosmic-icons \
     cosmic-files \
     cosmic-term \
+    || true && \
+    rpm-ostree install \
     # WM utilities
     wl-clipboard \
     gtk3-devel \
@@ -249,6 +258,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # System integration
     polkit-kde \
     xdg-desktop-portal-gtk \
+    xdg-desktop-portal-cosmic \
     # Graphics and media
     ImageMagick \
     pavucontrol \
@@ -366,15 +376,15 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "Exec=cosmic-session" >> /usr/share/wayland-sessions/cosmic.desktop && \
     echo "Type=Application" >> /usr/share/wayland-sessions/cosmic.desktop && \
     echo "DesktopNames=COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    # Enable cosmic-greeter service
-    systemctl enable cosmic-greeter.service || true && \
+    # Enable cosmic-greeter service if it exists
+    (systemctl enable cosmic-greeter.service 2>/dev/null || true) && \
     # Enable Redis service
     systemctl enable redis.service || true && \
     # Ensure files are accessible
     chmod 755 /usr/share/wayland-sessions/cosmic.desktop && \
-    # Remove Plasma sessions
-    rm -f /usr/share/wayland-sessions/plasmawayland.desktop || true && \
-    rm -f /usr/share/xsessions/plasma.desktop || true && \
+    # Remove Plasma sessions if they exist
+    rm -f /usr/share/wayland-sessions/plasmawayland.desktop 2>/dev/null || true && \
+    rm -f /usr/share/xsessions/plasma.desktop 2>/dev/null || true && \
     # Final cleanup
     if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
     if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
@@ -383,21 +393,20 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     ostree container commit
 
 # ==========================================
-# SECTION 8: COSMIC GREETER THEME SETUP
+# SECTION 8: COSMIC THEME SETUP
 # ==========================================
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install theme dependencies
-    rpm-ostree install \
-    cosmic-theme \
-    || true && \
-    # Configure cosmic-greeter
-    mkdir -p /etc/cosmic-greeter && \
-    echo "{" > /etc/cosmic-greeter/config.json && \
-    echo "  \"background_mode\": \"Solid\"," >> /etc/cosmic-greeter/config.json && \
-    echo "  \"background_solid_color\": \"#282c34\"," >> /etc/cosmic-greeter/config.json && \
-    echo "  \"time_format\": \"12Hour\"" >> /etc/cosmic-greeter/config.json && \
-    echo "}" >> /etc/cosmic-greeter/config.json && \
-    /usr/libexec/build/clean.sh && \
+RUN mkdir -p /etc/cosmic-theme && \
+    echo "{" > /etc/cosmic-theme/config.json && \
+    echo "  \"accent_color\": \"#6a92d7\"," >> /etc/cosmic-theme/config.json && \
+    echo "  \"theme_type\": \"dark\"" >> /etc/cosmic-theme/config.json && \
+    echo "}" >> /etc/cosmic-theme/config.json && \
+    # Create default COSMIC greeting configuration if needed
+    mkdir -p /etc/cosmic-greeter 2>/dev/null || true && \
+    echo "{" > /etc/cosmic-greeter/config.json 2>/dev/null || true && \
+    echo "  \"background_mode\": \"Solid\"," >> /etc/cosmic-greeter/config.json 2>/dev/null || true && \
+    echo "  \"background_solid_color\": \"#282c34\"," >> /etc/cosmic-greeter/config.json 2>/dev/null || true && \
+    echo "  \"time_format\": \"12Hour\"" >> /etc/cosmic-greeter/config.json 2>/dev/null || true && \
+    echo "}" >> /etc/cosmic-greeter/config.json 2>/dev/null || true && \
     ostree container commit
 
 # ==========================================
@@ -473,7 +482,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "VARIANT=COSMIC" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-09 09:18:54" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-09 09:53:59" > /etc/orb-os/version && \
     # Update welcome and issue files
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
