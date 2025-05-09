@@ -108,8 +108,16 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
-    # Add Redis repository
-    dnf install -y https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm && \
+    # Add Redis repository (use manual approach to avoid /opt conflict)
+    mkdir -p /tmp/remi && \
+    cd /tmp/remi && \
+    curl -O https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm && \
+    rpm2cpio remi-release-$(rpm -E %fedora).rpm | cpio -idmv && \
+    cp -rf ./etc/yum.repos.d/* /etc/yum.repos.d/ && \
+    cp -rf ./etc/pki /etc/ && \
+    cd / && \
+    rm -rf /tmp/remi && \
+    # Enable Redis module
     dnf module reset -y php && \
     dnf module enable -y redis:remi-7.0 && \
     # For ungoogled-chromium, install from dnf directly rather than using a separate repo
