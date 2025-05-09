@@ -16,12 +16,15 @@ COPY system /
 # ==========================================
 # SECTION 1: SYSTEM PACKAGE OVERRIDES
 # ==========================================
+# Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Base system overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=fedora \
     libusb1 \
     || true && \
+    # Graphics and display overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=updates \
@@ -30,7 +33,53 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     libdecor \
     atk \
     at-spi2-atk \
+    libX11 libX11-common libX11-xcb \
+    libinput \
     || true && \
+    # Media and codec overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    alsa-lib \
+    gstreamer1 gstreamer1-plugins-base \
+    libaom \
+    libopenmpt \
+    libv4l \
+    || true && \
+    # System library overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gnutls \
+    glib2 \
+    nspr \
+    nss nss-softokn nss-softokn-freebl nss-sysinit nss-util \
+    libtirpc \
+    libuuid \
+    libblkid \
+    libmount \
+    cups-libs \
+    llvm-libs \
+    zlib-ng-compat \
+    fontconfig \
+    pciutils-libs \
+    || true && \
+    # Compiler and runtime libraries
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cpp libatomic libgcc libgfortran libgomp libobjc libstdc++ \
+    elfutils-libelf elfutils-libs \
+    || true && \
+    # Core system overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glibc glibc-common glibc-all-langpacks glibc-gconv-extra \
+    libxcrypt \
+    SDL2 \
+    || true && \
+    # Remove unnecessary packages
     rpm-ostree override remove \
     glibc32 \
     || true && \
@@ -40,9 +89,17 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 2: REPOSITORY SETUP
 # ==========================================
+# Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Add COPR repositories
+    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
+    https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
+    https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add Hyprland COPR repository
     curl -Lo /etc/yum.repos.d/_copr_solopasha-hyprland.repo \
     https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/repo/fedora-"${FEDORA_MAJOR_VERSION}"/solopasha-hyprland-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add RPM Fusion repositories
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
@@ -52,17 +109,49 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 3: HYPRLAND & DEPENDENCIES INSTALLATION
 # ==========================================
+# Install Hyprland and dependencies based on the hyprdots repository
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
+    # Core Hyprland packages
     hyprland \
     cliphist \
     xdg-desktop-portal-hyprland \
     swww \
+    grimblast \
+    # WM utilities
     wl-clipboard \
+    go \
+    gtk3-devel \
+    xdg-utils \
+    swappy \
+    rust \
+    cargo \
+    # Fonts and themes
     google-noto-emoji-fonts \
+    google-noto-emoji-color-fonts \
+    # Audio and sensors
     pamixer \
     alsa-ucm \
     alsa-firmware \
+    alsa-sof-firmware \
+    lm_sensors \
+    cava \
+    # Bluetooth
+    bluez \
+    bluez-tools \
+    blueman \
+    # Network
+    NetworkManager-wifi \
+    network-manager-applet \
+    # Python dependencies
+    python3-cairo \
+    python-cairo \
+    pipx \
+    # System utilities
+    polkit-qt6-1 \
+    lsd \
+    neofetch \
+    # Handle NVIDIA detection automatically during first boot
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
@@ -72,6 +161,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
+    # Core apps
     pipewire \
     wireplumber \
     brightnessctl \
@@ -80,37 +170,85 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rofi-wayland \
     swayidle \
     waybar \
+    wlogout \
     grim \
     slurp \
+    # System integration
+    polkit-kde \
+    xdg-desktop-portal-gtk \
+    # Graphics and media
+    ImageMagick \
     pavucontrol \
+    # QT theming
+    qt6-qtbase-devel \
+    ffmpegthumbs \
+    qt5-qtimageformats \
+    qt6-qtbase \
+    kvantum \
+    qt5ct \
+    qt6ct \
+    # File manager and utilities
+    parallel \
+    dolphin \
+    kde-cli-tools \
+    sddm \
+    fastfetch \
     || true && \
+    # Special cases for Hyprland environment
+    if command -v pipx &> /dev/null; then \
+    pipx install --global hyprshade || true; \
+    fi && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 5: HYPRDOTS CONFIGURATION
 # ==========================================
+# Clone and set up the hyprdots configuration
 RUN mkdir -p /tmp/hyprdots && \
     cd /tmp/hyprdots && \
+    # Clone hyprdots configurations
     git clone https://github.com/Ariffansyah/fedora-hyprland-hyprdots.git && \
     cd fedora-hyprland-hyprdots/build-hyprland-and-apps && \
     ./install_all.sh && \
-    mkdir -p /etc/skel/.config/hypr && \
-    cp -r ~/.config/hypr/* /etc/skel/.config/hypr/ && \
-    chmod -R 755 /etc/skel/.config/hypr && \
+    # Cleanup
     rm -rf /tmp/hyprdots && \
     ostree container commit
 
 # ==========================================
 # SECTION 6: ADDITIONAL CONFIG & BOOT SETUP
 # ==========================================
+# Configure SDDM, autostart, and environment variables
 RUN mkdir -p /etc/skel/.config/hypr && \
+    # Create autostart file
     echo "# Autostart applications" > /etc/skel/.config/hypr/autostart.sh && \
     echo "#!/bin/bash" >> /etc/skel/.config/hypr/autostart.sh && \
-    echo "bash /usr/bin/hyprdots-firstlogin.sh" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start waybar" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "waybar &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start notification daemon" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "dunst &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start network manager applet" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "nm-applet --indicator &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start wallpaper daemon" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "swww init &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Clipboard manager" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "wl-clipboard-history -t &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "clipman restore &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Authentication agent" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "/usr/libexec/polkit-kde-authentication-agent-1 &" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    # Make autostart executable
     chmod +x /etc/skel/.config/hypr/autostart.sh && \
+    # Add environment variables to ensure proper Wayland integration
     mkdir -p /etc/environment.d && \
-    echo "MOZ_ENABLE_WAYLAND=1" > /etc/environment.d/90-hyprland.conf && \
+    echo "# Hyprland environment variables" > /etc/environment.d/90-hyprland.conf && \
+    echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-hyprland.conf && \
     echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-hyprland.conf && \
     echo "XDG_CURRENT_DESKTOP=Hyprland" >> /etc/environment.d/90-hyprland.conf && \
     echo "XDG_SESSION_DESKTOP=Hyprland" >> /etc/environment.d/90-hyprland.conf && \
@@ -121,47 +259,179 @@ RUN mkdir -p /etc/skel/.config/hypr && \
     echo "SDL_VIDEODRIVER=wayland" >> /etc/environment.d/90-hyprland.conf && \
     echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-hyprland.conf && \
     echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-hyprland.conf && \
+    # Setup SDDM
+    mkdir -p /etc/sddm.conf.d && \
+    echo "[General]" > /etc/sddm.conf.d/10-wayland.conf && \
+    echo "DisplayServer=wayland" >> /etc/sddm.conf.d/10-wayland.conf && \
+    echo "GreeterEnvironment=QT_QPA_PLATFORM=wayland" >> /etc/sddm.conf.d/10-wayland.conf && \
+    # Enable SDDM
+    systemctl enable sddm.service || true && \
+    # Create Hyprland session file
+    mkdir -p /usr/share/wayland-sessions && \
+    echo "[Desktop Entry]" > /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Name=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Comment=An efficient dynamic tiling Wayland compositor" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Exec=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "Type=Application" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "DesktopNames=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "X-KDE-PluginInfo-Version=1.0" >> /usr/share/wayland-sessions/hyprland.desktop && \
+    # Ensure files are accessible
+    chmod 755 /usr/share/wayland-sessions/hyprland.desktop && \
+    # Remove Plasma sessions
+    rm -f /usr/share/wayland-sessions/plasmawayland.desktop && \
+    rm -f /usr/share/xsessions/plasma.desktop && \
+    # Final cleanup
+    if [ -x /usr/libexec/build/image-info ]; then /usr/libexec/build/image-info; fi && \
+    if [ -x /usr/libexec/build/build-initramfs ]; then /usr/libexec/build/build-initramfs; fi && \
+    /usr/libexec/build/clean.sh && \
+    mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
 
 # ==========================================
-# SECTION 7: FIRST-LOGIN CONFIGURATION SCRIPT
+# SECTION 7: KDE-LIKE SDDM THEME SETUP
 # ==========================================
-RUN mkdir -p /usr/bin && \
-    echo "#!/bin/bash" > /usr/bin/hyprdots-firstlogin.sh && \
-    echo "if [ ! -d ~/.config/hypr ]; then" >> /usr/bin/hyprdots-firstlogin.sh && \
-    echo "    cp -r /etc/skel/.config/hypr ~/.config/hypr" >> /usr/bin/hyprdots-firstlogin.sh && \
-    echo "    chmod -R 755 ~/.config/hypr" >> /usr/bin/hyprdots-firstlogin.sh && \
-    echo "fi" >> /usr/bin/hyprdots-firstlogin.sh && \
-    chmod +x /usr/bin/hyprdots-firstlogin.sh
-
-# ==========================================
-# SECTION 8: FINAL SDDM CONFIGURATION
-# ==========================================
-RUN mkdir -p /etc/sddm.conf.d && \
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install SDDM KDE theme dependencies
+    rpm-ostree install \
+    sddm-kcm \
+    sddm-breeze \
+    breeze-gtk \
+    breeze-icon-theme \
+    || true && \
+    # Configure SDDM to use Breeze theme
+    mkdir -p /etc/sddm.conf.d && \
     echo "[Theme]" > /etc/sddm.conf.d/10-kde-theme.conf && \
     echo "Current=breeze" >> /etc/sddm.conf.d/10-kde-theme.conf && \
     echo "CursorTheme=breeze_cursors" >> /etc/sddm.conf.d/10-kde-theme.conf && \
     echo "Font=Noto Sans" >> /etc/sddm.conf.d/10-kde-theme.conf && \
-    rm -f /usr/share/wayland-sessions/plasmawayland.desktop && \
-    rm -f /usr/share/xsessions/plasma.desktop && \
-    mkdir -p /usr/share/wayland-sessions && \
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/hyprland.desktop && \
-    echo "Name=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
-    echo "Exec=Hyprland" >> /usr/share/wayland-sessions/hyprland.desktop && \
-    chmod 755 /usr/share/wayland-sessions/hyprland.desktop && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "[Users]" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "MaximumUid=60000" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "MinimumUid=1000" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "[X11]" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "[Wayland]" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    echo "" >> /etc/sddm.conf.d/10-kde-theme.conf && \
+    /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 9: FINAL OS BRANDING
+# SECTION 8: FIRST-BOOT SETUP SCRIPT
 # ==========================================
-RUN sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
+# Create a first-boot script to complete setup
+RUN mkdir -p /usr/lib/systemd/system && \
+    echo "[Unit]" > /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "Description=Configure Hyprdots on First Boot" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "After=network.target" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "[Service]" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "Type=oneshot" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "ExecStart=/usr/bin/hyprdots-firstboot.sh" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "[Install]" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    mkdir -p /usr/bin && \
+    echo "#!/bin/bash" > /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Configure SDDM to look like KDE" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "if [ -d \"/usr/share/sddm/themes/breeze\" ]; then" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"Configuring SDDM with KDE Breeze theme...\"" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    # Make sure SDDM uses the breeze theme" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    mkdir -p /etc/sddm.conf.d" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"[Theme]\" > /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"Current=breeze\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"CursorTheme=breeze_cursors\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    # Copy KDE Plasma wallpaper for SDDM background if available" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    if [ -d \"/usr/share/wallpapers/Next\" ]; then" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "        cp -r /usr/share/wallpapers/Next /usr/share/sddm/themes/breeze/" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "        echo \"Background=/usr/share/sddm/themes/breeze/Next/contents/images/1920x1080.png\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    fi" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "fi" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "fi" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Create directories for user themes" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-2.0" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-3.0" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-4.0" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "# Disable this service after first run" >> /usr/bin/hyprdots-firstboot.sh && \
+    echo "systemctl disable hyprdots-firstboot.service" >> /usr/bin/hyprdots-firstboot.sh && \
+    chmod +x /usr/bin/hyprdots-firstboot.sh && \
+    systemctl enable hyprdots-firstboot.service && \
+    ostree container commit
+
+# ==========================================
+# SECTION 9: COMPLETE SDDM CONFIGURATION
+# ==========================================
+# Create complete SDDM configuration with KDE look and feel
+RUN echo "[Autologin]" > /etc/sddm.conf && \
+    echo "# Autologin is disabled by default" >> /etc/sddm.conf && \
+    echo "Relogin=false" >> /etc/sddm.conf && \
+    echo "Session=" >> /etc/sddm.conf && \
+    echo "User=" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[General]" >> /etc/sddm.conf && \
+    echo "DisplayServer=wayland" >> /etc/sddm.conf && \
+    echo "GreeterEnvironment=QT_QPA_PLATFORM=wayland" >> /etc/sddm.conf && \
+    echo "HaltCommand=/usr/bin/systemctl poweroff" >> /etc/sddm.conf && \
+    echo "Numlock=on" >> /etc/sddm.conf && \
+    echo "RebootCommand=/usr/bin/systemctl reboot" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[Theme]" >> /etc/sddm.conf && \
+    echo "Current=breeze" >> /etc/sddm.conf && \
+    echo "CursorTheme=breeze_cursors" >> /etc/sddm.conf && \
+    echo "Font=Noto Sans,10,-1,5,50,0,0,0,0,0" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[Users]" >> /etc/sddm.conf && \
+    echo "DefaultPath=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" >> /etc/sddm.conf && \
+    echo "HideShells=" >> /etc/sddm.conf && \
+    echo "HideUsers=" >> /etc/sddm.conf && \
+    echo "MaximumUid=60000" >> /etc/sddm.conf && \
+    echo "MinimumUid=1000" >> /etc/sddm.conf && \
+    echo "RememberLastSession=true" >> /etc/sddm.conf && \
+    echo "RememberLastUser=true" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[Wayland]" >> /etc/sddm.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf && \
+    echo "SessionCommand=/usr/share/sddm/scripts/wayland-session" >> /etc/sddm.conf && \
+    echo "SessionDir=/usr/share/wayland-sessions" >> /etc/sddm.conf && \
+    echo "" >> /etc/sddm.conf && \
+    echo "[X11]" >> /etc/sddm.conf && \
+    echo "EnableHiDPI=true" >> /etc/sddm.conf && \
+    echo "ServerPath=/usr/bin/X" >> /etc/sddm.conf && \
+    echo "SessionCommand=/usr/share/sddm/scripts/Xsession" >> /etc/sddm.conf && \
+    echo "SessionDir=/usr/share/xsessions" >> /etc/sddm.conf && \
+    echo "XauthPath=/usr/bin/xauth" >> /etc/sddm.conf && \
+    echo "XephyrPath=/usr/bin/Xephyr" >> /etc/sddm.conf
+
+# Copy override files and configure the system
+COPY override /
+
+# Final OS branding
+RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Update system branding more thoroughly from Kinoite to Orb OS
+    sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
     sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS Hyprland Hyprdots"/' /etc/os-release && \
     sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
     sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
+    # Add custom variant information
     echo "VARIANT_ID=hyprland-hyprdots" >> /etc/os-release && \
     echo "VARIANT=Hyprland-Hyprdots" >> /etc/os-release && \
+    # Create custom branding files
+    mkdir -p /etc/orb-os && \
     echo "Orb OS Hyprland Hyprdots - $(date +%Y%m%d)" > /etc/orb-os/version && \
+    # Update welcome and issue files
     echo "Orb OS Hyprland Hyprdots (\l)" > /etc/issue && \
     echo "Orb OS Hyprland Hyprdots" > /etc/issue.net && \
     echo "Welcome to Orb OS Hyprland Hyprdots!" > /etc/motd && \
+    # Copy branding to permanent location
     cp /etc/os-release /etc/orb-os-release
