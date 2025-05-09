@@ -108,8 +108,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
-    # For ungoogled-chromium, install from dnf directly rather than using a separate repo
-    dnf copr enable -y flatcap/ungoogled-chromium && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
@@ -160,8 +158,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     neovim \
     # Terminal
     ghostty \
-    # Browser
-    ungoogled-chromium \
+    # Browser (using standard Chromium instead of ungoogled)
+    chromium \
     # YoRHa theme dependencies
     eww \
     jq \
@@ -618,7 +616,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "VARIANT=Hyprland-YoRHa" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS Hyprland YoRHa - 2025-05-09 06:34:45" > /etc/orb-os/version && \
+    echo "Orb OS Hyprland YoRHa - 2025-05-09 06:53:07" > /etc/orb-os/version && \
     # Update welcome and issue files
     echo "Orb OS Hyprland YoRHa (\l)" > /etc/issue && \
     echo "Orb OS Hyprland YoRHa" > /etc/issue.net && \
