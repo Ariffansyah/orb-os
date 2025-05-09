@@ -108,13 +108,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
-    # Add Zen Browser repository
-    curl -Lo /etc/yum.repos.d/zen-browser.repo \
-    https://download.opensuse.org/repositories/home:/ungoogled_chromium/Fedora_$(rpm -E %fedora)/home:ungoogled_chromium.repo && \
     # Add Redis repository
     dnf install -y https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm && \
     dnf module reset -y php && \
     dnf module enable -y redis:remi-7.0 && \
+    # For ungoogled-chromium, install from dnf directly rather than using a separate repo
+    dnf copr enable -y flatcap/ungoogled-chromium && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
@@ -355,19 +354,19 @@ RUN mkdir -p /tmp/yorha && \
     mkdir -p /etc/skel/wallpapers && \
     cp -r dotfiles/wallpapers/* /etc/skel/wallpapers/; \
     fi && \
-    # Set Zen Browser as default browser
+    # Set Chromium as default browser
     echo "[Default Applications]" > /etc/skel/.config/mimeapps.list && \
-    echo "text/html=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/http=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/https=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/ftp=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/chrome=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "application/x-extension-htm=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "application/x-extension-html=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "application/x-extension-shtml=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "application/xhtml+xml=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "application/x-extension-xhtml=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "application/x-extension-xht=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "text/html=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/http=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/https=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/ftp=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/chrome=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-htm=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-html=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-shtml=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/xhtml+xml=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-xhtml=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-xht=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
     # Cleanup
     rm -rf /tmp/yorha && \
     ostree container commit
@@ -553,8 +552,8 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "echo 'systemctl --user enable --now eww.service' > /etc/skel/.config/autostart/eww.desktop" >> /usr/bin/yorha-firstboot.sh && \
     echo "" >> /usr/bin/yorha-firstboot.sh && \
     echo "# Configure default browser" >> /usr/bin/yorha-firstboot.sh && \
-    echo "echo 'xdg-settings set default-web-browser org.chromium.Chromium.desktop' >> /etc/skel/.bashrc" >> /usr/bin/yorha-firstboot.sh && \
-    echo "echo 'xdg-settings set default-web-browser org.chromium.Chromium.desktop' >> /etc/skel/.zshrc" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'xdg-settings set default-web-browser chromium-browser.desktop' >> /etc/skel/.bashrc" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'xdg-settings set default-web-browser chromium-browser.desktop' >> /etc/skel/.zshrc" >> /usr/bin/yorha-firstboot.sh && \
     echo "" >> /usr/bin/yorha-firstboot.sh && \
     echo "# Disable this service after first run" >> /usr/bin/yorha-firstboot.sh && \
     echo "systemctl disable yorha-firstboot.service" >> /usr/bin/yorha-firstboot.sh && \
@@ -619,12 +618,9 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Add custom variant information
     echo "VARIANT_ID=hyprland-yorha" >> /etc/os-release && \
     echo "VARIANT=Hyprland-YoRHa" >> /etc/os-release && \
-    # Set build date
-    echo "BUILD_DATE=\"2025-05-09 05:37:32\"" >> /etc/os-release && \
-    echo "BUILD_USER=\"AriffansyahI\"" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS Hyprland YoRHa - Build 2025-05-09 05:37:32" > /etc/orb-os/version && \
+    echo "Orb OS Hyprland YoRHa - 2025-05-09 05:48:46" > /etc/orb-os/version && \
     # Update welcome and issue files
     echo "Orb OS Hyprland YoRHa (\l)" > /etc/issue && \
     echo "Orb OS Hyprland YoRHa" > /etc/issue.net && \
