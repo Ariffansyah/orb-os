@@ -97,15 +97,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Add System76 COSMIC repository - using POP OS repo which has COSMIC packages
-    echo "[pop-os]" > /etc/yum.repos.d/pop-os.repo && \
-    echo "name=Pop_OS Repository" >> /etc/yum.repos.d/pop-os.repo && \
-    echo "baseurl=http://apt.pop-os.org/release" >> /etc/yum.repos.d/pop-os.repo && \
-    echo "enabled=1" >> /etc/yum.repos.d/pop-os.repo && \
-    echo "gpgcheck=0" >> /etc/yum.repos.d/pop-os.repo && \
-    echo "skip_if_unavailable=True" >> /etc/yum.repos.d/pop-os.repo && \
-    # Add GDM for login screen
-    dnf install -y gdm && \
     # Add NodeJS repository
     curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
     # Add PostgreSQL repository
@@ -118,12 +109,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 3: COSMIC & DEPENDENCIES INSTALLATION
+# SECTION 3: DESKTOP ENVIRONMENT INSTALLATION
 # ==========================================
-# Install Pop!_OS repository key
-RUN curl -fsSL https://apt.pop-os.org/archive-keyring/public-key.asc | gpg --dearmor -o /etc/apt/trusted.gpg.d/pop-os-archive.gpg
-
-# Install COSMIC and dependencies
+# Install GNOME desktop environment
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install essential display packages
     rpm-ostree install \
@@ -133,20 +121,25 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     mesa-dri-drivers \
     mesa-vulkan-drivers \
     || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install GNOME core
     rpm-ostree install \
     gnome-shell \
     gnome-session \
     gnome-control-center \
+    gnome-tweaks \
+    gnome-shell-extension-appindicator \
+    gnome-terminal \
+    gnome-backgrounds \
+    gnome-themes-extra \
     || true && \
-    # Install COSMIC packages if available or fallback to GNOME
-    (rpm-ostree install \
-    pop-cosmic \
-    pop-desktop \
-    pop-default-settings \
-    pop-gnome-shell-theme \
-    cosmic-comp \
-    cosmic-session \
-    || true) && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install core desktop environment requirements
     rpm-ostree install \
     wl-clipboard \
@@ -154,13 +147,25 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     xdg-utils \
     xdg-desktop-portal \
     xdg-desktop-portal-gtk \
+    xdg-desktop-portal-gnome \
     polkit-gnome \
     || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Fonts and themes
     rpm-ostree install \
     google-noto-emoji-fonts \
     google-noto-emoji-color-fonts \
+    arc-theme \
+    papirus-icon-theme \
+    breeze-cursor-theme \
     || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Audio and sensors
     rpm-ostree install \
     pipewire \
@@ -174,47 +179,58 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     lm_sensors \
     cava \
     || true && \
-    # Bluetooth
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Bluetooth and Network
     rpm-ostree install \
     bluez \
     bluez-tools \
     blueman \
-    || true && \
-    # Network
-    rpm-ostree install \
     NetworkManager-wifi \
     network-manager-applet \
     || true && \
-    # Python dependencies
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 4: ADDITIONAL SOFTWARE
+# ==========================================
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Python dependencies and system utilities
     rpm-ostree install \
     python3-cairo \
     python-cairo \
     pipx \
-    || true && \
-    # System utilities
-    rpm-ostree install \
     polkit-qt6-1 \
     lsd \
     fastfetch \
     tmux \
     neofetch \
     || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Text editors
     rpm-ostree install \
     neovim \
     || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Terminal and Browser
     rpm-ostree install \
     ghostty \
     alacritty \
-    gnome-terminal \
     chromium \
     || true && \
-    # Icon themes
-    rpm-ostree install \
-    papirus-icon-theme \
-    adwaita-icon-theme \
-    || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Fonts
     rpm-ostree install \
     inter-fonts \
@@ -227,7 +243,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 4: PROGRAMMING LANGUAGES & TOOLS
+# SECTION 5: PROGRAMMING LANGUAGES & TOOLS
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
@@ -276,7 +292,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 5: DESKTOP ENVIRONMENT SETUP
+# SECTION 6: DESKTOP ENVIRONMENT SETUP
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
@@ -287,8 +303,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     swayidle \
     grim \
     slurp \
-    # System integration
-    polkit-kde \
     # Graphics and media
     ImageMagick \
     pavucontrol \
@@ -302,9 +316,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     qt6ct \
     # File manager and utilities
     parallel \
-    dolphin \
     nautilus \
-    kde-cli-tools \
     # Additional utilities
     btop \
     || true && \
@@ -314,7 +326,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 6: DESKTOP CONFIGURATION
+# SECTION 7: DESKTOP CONFIGURATION
 # ==========================================
 # Set up the desktop configuration
 RUN mkdir -p /etc/skel/.config && \
@@ -386,7 +398,7 @@ RUN mkdir -p /etc/skel/.config && \
     echo "application/x-extension-xht=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list
 
 # ==========================================
-# SECTION 7: ADDITIONAL CONFIG & BOOT SETUP
+# SECTION 8: ADDITIONAL CONFIG & BOOT SETUP
 # ==========================================
 # Configure autostart and environment variables
 RUN mkdir -p /etc/skel/.config/autostart && \
@@ -402,8 +414,8 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "# Desktop environment variables" > /etc/environment.d/90-desktop-env.conf && \
     echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-desktop-env.conf && \
     echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-desktop-env.conf && \
-    echo "XDG_CURRENT_DESKTOP=pop:GNOME" >> /etc/environment.d/90-desktop-env.conf && \
-    echo "XDG_SESSION_DESKTOP=pop" >> /etc/environment.d/90-desktop-env.conf && \
+    echo "XDG_CURRENT_DESKTOP=GNOME" >> /etc/environment.d/90-desktop-env.conf && \
+    echo "XDG_SESSION_DESKTOP=gnome" >> /etc/environment.d/90-desktop-env.conf && \
     echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-desktop-env.conf && \
     echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-desktop-env.conf && \
     echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-desktop-env.conf && \
@@ -416,20 +428,13 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     # Create desktop session files
     mkdir -p /usr/share/wayland-sessions && \
     mkdir -p /usr/share/xsessions && \
-    # Create GNOME Wayland session file as fallback
+    # Create GNOME Wayland session file
     echo "[Desktop Entry]" > /usr/share/wayland-sessions/gnome-wayland.desktop && \
     echo "Name=GNOME on Wayland" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
     echo "Comment=This session logs you into GNOME" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
     echo "Exec=gnome-session" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
     echo "Type=Application" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
     echo "DesktopNames=GNOME" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    # Try to create Pop OS session if cosmic packages were installed
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/pop.desktop && \
-    echo "Name=Pop" >> /usr/share/wayland-sessions/pop.desktop && \
-    echo "Comment=Pop!_OS with COSMIC desktop" >> /usr/share/wayland-sessions/pop.desktop && \
-    echo "Exec=gnome-session --session=pop" >> /usr/share/wayland-sessions/pop.desktop && \
-    echo "Type=Application" >> /usr/share/wayland-sessions/pop.desktop && \
-    echo "DesktopNames=pop:GNOME" >> /usr/share/wayland-sessions/pop.desktop && \
     # Also create X11 session as fallback
     echo "[Desktop Entry]" > /usr/share/xsessions/gnome-xorg.desktop && \
     echo "Name=GNOME on Xorg" >> /usr/share/xsessions/gnome-xorg.desktop && \
@@ -449,21 +454,21 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp
 
 # ==========================================
-# SECTION 8: GNOME/COSMIC THEME SETUP
+# SECTION 9: GNOME THEME SETUP
 # ==========================================
 RUN mkdir -p /etc/dconf/db/local.d && \
     # Create theme settings
     echo "[org/gnome/desktop/interface]" > /etc/dconf/db/local.d/01-theme && \
-    echo "gtk-theme='Pop'" >> /etc/dconf/db/local.d/01-theme && \
-    echo "icon-theme='Pop'" >> /etc/dconf/db/local.d/01-theme && \
-    echo "cursor-theme='Pop'" >> /etc/dconf/db/local.d/01-theme && \
+    echo "gtk-theme='Arc-Dark'" >> /etc/dconf/db/local.d/01-theme && \
+    echo "icon-theme='Papirus-Dark'" >> /etc/dconf/db/local.d/01-theme && \
+    echo "cursor-theme='Breeze_Snow'" >> /etc/dconf/db/local.d/01-theme && \
     echo "font-name='Inter 11'" >> /etc/dconf/db/local.d/01-theme && \
     echo "document-font-name='Inter 11'" >> /etc/dconf/db/local.d/01-theme && \
     echo "monospace-font-name='JetBrainsMono Nerd Font 11'" >> /etc/dconf/db/local.d/01-theme && \
     echo "color-scheme='prefer-dark'" >> /etc/dconf/db/local.d/01-theme && \
     echo "" >> /etc/dconf/db/local.d/01-theme && \
     echo "[org/gnome/shell]" >> /etc/dconf/db/local.d/01-theme && \
-    echo "enabled-extensions=['pop-cosmic@system76.com', 'cosmic-dock@system76.com', 'cosmic-workspaces@system76.com']" >> /etc/dconf/db/local.d/01-theme && \
+    echo "enabled-extensions=['appindicatorsupport@rgcjonas.gmail.com']" >> /etc/dconf/db/local.d/01-theme && \
     echo "" >> /etc/dconf/db/local.d/01-theme && \
     echo "[org/gnome/desktop/peripherals/touchpad]" >> /etc/dconf/db/local.d/01-theme && \
     echo "natural-scroll=false" >> /etc/dconf/db/local.d/01-theme && \
@@ -477,16 +482,26 @@ RUN mkdir -p /etc/dconf/db/local.d && \
     echo "binding='<Super>t'" >> /etc/dconf/db/local.d/02-keybindings && \
     echo "command='alacritty'" >> /etc/dconf/db/local.d/02-keybindings && \
     echo "name='Terminal'" >> /etc/dconf/db/local.d/02-keybindings && \
+    # Desktop layout settings
+    echo "[org/gnome/shell]" > /etc/dconf/db/local.d/03-desktop && \
+    echo "favorite-apps=['chromium-browser.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop']" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "[org/gnome/desktop/wm/preferences]" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "button-layout=':minimize,maximize,close'" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "[org/gnome/mutter]" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "dynamic-workspaces=true" >> /etc/dconf/db/local.d/03-desktop && \
+    echo "workspaces-only-on-primary=true" >> /etc/dconf/db/local.d/03-desktop && \
     # Update dconf database
-    dconf update || true
+    dconf update 2>/dev/null || true
 
 # ==========================================
-# SECTION 9: FIRST-BOOT SETUP SCRIPT
+# SECTION 10: FIRST-BOOT SETUP SCRIPT
 # ==========================================
 # Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
     echo "[Unit]" > /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "Description=Configure Orb OS COSMIC on First Boot" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "Description=Configure Orb OS COSMIC-like on First Boot" >> /usr/lib/systemd/system/orb-firstboot.service && \
     echo "After=network.target" >> /usr/lib/systemd/system/orb-firstboot.service && \
     echo "" >> /usr/lib/systemd/system/orb-firstboot.service && \
     echo "[Service]" >> /usr/lib/systemd/system/orb-firstboot.service && \
@@ -535,6 +550,9 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "echo 'xdg-settings set default-web-browser chromium-browser.desktop' >> /etc/skel/.bashrc" >> /usr/bin/orb-firstboot.sh && \
     echo "echo 'xdg-settings set default-web-browser chromium-browser.desktop' >> /etc/skel/.zshrc" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Install additional GNOME extensions if available" >> /usr/bin/orb-firstboot.sh && \
+    echo "rpm-ostree install -y gnome-shell-extension-dash-to-dock gnome-shell-extension-appindicator || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
     echo "# Disable this service after first run" >> /usr/bin/orb-firstboot.sh && \
     echo "systemctl disable orb-firstboot.service" >> /usr/bin/orb-firstboot.sh && \
     chmod +x /usr/bin/orb-firstboot.sh && \
@@ -555,10 +573,10 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "VARIANT=COSMIC" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-09 10:47:24" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-09 10:59:39" > /etc/orb-os/version && \
     # Update welcome and issue files
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
-    echo "Welcome to Orb OS with COSMIC desktop environment!" > /etc/motd && \
+    echo "Welcome to Orb OS with COSMIC-like desktop environment!" > /etc/motd && \
     # Copy branding to permanent location
     cp /etc/os-release /etc/orb-os-release
