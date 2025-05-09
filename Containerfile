@@ -97,13 +97,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
-    # Create custom cosmic repository
-    echo "[system76-cosmic]" > /etc/yum.repos.d/system76-cosmic.repo && \
-    echo "name=COSMIC Desktop Environment for Fedora" >> /etc/yum.repos.d/system76-cosmic.repo && \
-    echo "baseurl=https://rpm.system76.com/fedora/\$releasever/system76-cosmic" >> /etc/yum.repos.d/system76-cosmic.repo && \
-    echo "enabled=1" >> /etc/yum.repos.d/system76-cosmic.repo && \
-    echo "gpgcheck=0" >> /etc/yum.repos.d/system76-cosmic.repo && \
-    echo "repo_gpgcheck=0" >> /etc/yum.repos.d/system76-cosmic.repo && \
     # Add RPM Fusion repositories
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
@@ -114,14 +107,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 3: DISPLAY SERVER AND LOGIN MANAGER
+# SECTION 3: DISPLAY SERVER AND DESKTOP
 # ==========================================
-# Install display server and login manager first
+# Install display server and desktop environment packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install essential display packages
     rpm-ostree install -y \
-    gdm \
-    wlroots \
     wayland \
     wayland-protocols \
     xorg-x11-server-Xwayland \
@@ -133,63 +124,43 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     mesa-libGL \
     mesa-libEGL \
     mesa-libGLU \
+    wlroots \
     || true && \
-    systemctl enable gdm.service && \
+    # Install GNOME display manager and core
+    rpm-ostree install -y \
+    gnome-shell \
+    gnome-session \
+    gnome-terminal \
+    gnome-control-center \
+    gdm \
+    || true && \
+    # Set default target to graphical
     systemctl set-default graphical.target && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 4: COSMIC DESKTOP & CORE COMPONENTS
+# SECTION 4: ADDITIONAL DESKTOP COMPONENTS
 # ==========================================
-# Try to install COSMIC packages from system76 repo or available packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # First attempt with system76 repo
-    rpm-ostree install \
-    cosmic-session \
-    cosmic-desktop \
-    cosmic-settings \
-    cosmic-applets \
-    cosmic-panel \
-    cosmic-launcher \
-    cosmic-workspaces \
-    cosmic-bg \
-    cosmic-comp \
-    cosmic-osd \
-    cosmic-notifications \
-    cosmic-applibrary \
-    || true && \
-    # Install GNOME shell as fallback if COSMIC fails
-    rpm-ostree install \
-    gnome-shell \
-    gnome-session \
-    gnome-control-center \
-    gnome-terminal \
-    || true && \
-    # Install core desktop environment components
-    rpm-ostree install \
+    # Core desktop environment components
+    rpm-ostree install -y \
     wl-clipboard \
     xdg-utils \
     xdg-desktop-portal \
     xdg-desktop-portal-gtk \
+    xdg-desktop-portal-gnome \
     polkit-gnome \
     || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 5: ADDITIONAL DESKTOP COMPONENTS
-# ==========================================
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Fonts and themes
-    rpm-ostree install \
+    rpm-ostree install -y \
     google-noto-emoji-fonts \
     google-noto-emoji-color-fonts \
     arc-theme \
     papirus-icon-theme \
     || true && \
     # Audio and sensors
-    rpm-ostree install \
+    rpm-ostree install -y \
     pipewire \
     pipewire-alsa \
     pipewire-pulseaudio \
@@ -200,22 +171,23 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     lm_sensors \
     || true && \
     # Bluetooth and Network
-    rpm-ostree install \
+    rpm-ostree install -y \
     bluez \
     bluez-tools \
     NetworkManager-wifi \
     network-manager-applet \
     || true && \
     # Core applications
-    rpm-ostree install \
+    rpm-ostree install -y \
     chromium \
     alacritty \
     nautilus \
+    gnome-tweaks \
     ghostty \
     neovim \
     || true && \
     # Install ZSH and neofetch
-    rpm-ostree install \
+    rpm-ostree install -y \
     zsh \
     zsh-autosuggestions \
     zsh-syntax-highlighting \
@@ -225,11 +197,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 6: PROGRAMMING LANGUAGES & TOOLS
+# SECTION 5: PROGRAMMING LANGUAGES & TOOLS
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install development tools and programming languages
-    rpm-ostree install \
+    rpm-ostree install -y \
     gcc \
     gcc-c++ \
     make \
@@ -252,12 +224,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Ensure fastfetch is properly installed and configured
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install fastfetch
-    rpm-ostree install fastfetch && \
+    rpm-ostree install -y fastfetch && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 7: ZSH CONFIGURATION
+# SECTION 6: ZSH CONFIGURATION
 # ==========================================
 # Set up ZSH configuration
 RUN mkdir -p /etc/skel/.config && \
@@ -313,7 +285,7 @@ RUN mkdir -p /etc/skel/.config && \
     echo "" >> /etc/skel/.zshenv
 
 # ==========================================
-# SECTION 8: USER CONFIGURATION
+# SECTION 7: USER CONFIGURATION
 # ==========================================
 # Set up user configuration files
 RUN mkdir -p /etc/skel/.config && \
@@ -442,7 +414,7 @@ RUN mkdir -p /etc/skel/.config && \
     echo "x-scheme-handler/https=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list
 
 # ==========================================
-# SECTION 10: DESKTOP SESSION SETUP
+# SECTION 8: DESKTOP SESSION SETUP
 # ==========================================
 # Configure desktop environment settings
 RUN mkdir -p /etc/skel/.config/autostart && \
@@ -454,31 +426,23 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "Terminal=false" >> /etc/skel/.config/autostart/nm-applet.desktop && \
     # Create environment variables
     mkdir -p /etc/environment.d && \
-    echo "# COSMIC environment variables" > /etc/environment.d/90-cosmic-env.conf && \
-    echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "XDG_CURRENT_DESKTOP=cosmic" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "XDG_SESSION_DESKTOP=cosmic" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "QT_AUTO_SCREEN_SCALE_FACTOR=1" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "SDL_VIDEODRIVER=wayland" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-cosmic-env.conf && \
-    echo "ZDOTDIR=\$HOME" >> /etc/environment.d/90-cosmic-env.conf && \
+    echo "# Wayland environment variables" > /etc/environment.d/90-env.conf && \
+    echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-env.conf && \
+    echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-env.conf && \
+    echo "XDG_CURRENT_DESKTOP=GNOME" >> /etc/environment.d/90-env.conf && \
+    echo "XDG_SESSION_DESKTOP=gnome" >> /etc/environment.d/90-env.conf && \
+    echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-env.conf && \
+    echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-env.conf && \
+    echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-env.conf && \
+    echo "QT_AUTO_SCREEN_SCALE_FACTOR=1" >> /etc/environment.d/90-env.conf && \
+    echo "SDL_VIDEODRIVER=wayland" >> /etc/environment.d/90-env.conf && \
+    echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-env.conf && \
+    echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-env.conf && \
+    echo "ZDOTDIR=\$HOME" >> /etc/environment.d/90-env.conf && \
     # Create session files
     mkdir -p /usr/share/wayland-sessions && \
     mkdir -p /usr/share/xsessions && \
-    # Create COSMIC Wayland session file
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Name=COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Comment=This session logs you into COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Exec=cosmic-session" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Type=Application" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "DesktopNames=cosmic" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    chmod 644 /usr/share/wayland-sessions/cosmic.desktop && \
-    # Create GNOME fallback session file
+    # Create GNOME Wayland session file
     echo "[Desktop Entry]" > /usr/share/wayland-sessions/gnome.desktop && \
     echo "Name=GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
     echo "Comment=This session logs you into GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
@@ -486,6 +450,14 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "Type=Application" >> /usr/share/wayland-sessions/gnome.desktop && \
     echo "DesktopNames=GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
     chmod 644 /usr/share/wayland-sessions/gnome.desktop && \
+    # Create X11 session file
+    echo "[Desktop Entry]" > /usr/share/xsessions/gnome-xorg.desktop && \
+    echo "Name=GNOME on Xorg" >> /usr/share/xsessions/gnome-xorg.desktop && \
+    echo "Comment=This session logs you into GNOME" >> /usr/share/xsessions/gnome-xorg.desktop && \
+    echo "Exec=gnome-session" >> /usr/share/xsessions/gnome-xorg.desktop && \
+    echo "Type=Application" >> /usr/share/xsessions/gnome-xorg.desktop && \
+    echo "DesktopNames=GNOME" >> /usr/share/xsessions/gnome-xorg.desktop && \
+    chmod 644 /usr/share/xsessions/gnome-xorg.desktop && \
     # Create welcome message script that doesn't have command not found error
     echo '#!/bin/bash' > /etc/profile.d/welcome.sh && \
     echo 'if [ -f /etc/motd ]; then' >> /etc/profile.d/welcome.sh && \
@@ -494,64 +466,65 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     chmod +x /etc/profile.d/welcome.sh
 
 # ==========================================
-# SECTION 11: FIRST-BOOT SETUP
+# SECTION 10: FIRST-BOOT SETUP
 # ==========================================
 # Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
-    echo "[Unit]" > /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "Description=First Boot Setup for Orb OS COSMIC" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "Before=display-manager.service" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "After=network.target" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "[Service]" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "Type=oneshot" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "ExecStart=/usr/bin/orb-cosmic-firstboot.sh" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "[Install]" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
-    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/orb-cosmic-firstboot.service && \
+    echo "[Unit]" > /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "Description=First Boot Setup for Orb OS" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "Before=display-manager.service" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "After=network.target" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "[Service]" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "Type=oneshot" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "ExecStart=/usr/bin/orb-firstboot.sh" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "[Install]" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/orb-firstboot.service && \
     mkdir -p /usr/bin && \
-    echo "#!/bin/bash" > /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Ensure GDM is enabled" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "systemctl enable gdm.service" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "systemctl set-default graphical.target" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Set zsh as default shell for future users" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "sed -i 's|^SHELL=.*|SHELL=/bin/zsh|' /etc/default/useradd" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Configure neofetch as fallback for fastfetch" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "if ! command -v fastfetch &> /dev/null && command -v neofetch &> /dev/null; then" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "    ln -sf /usr/bin/neofetch /usr/local/bin/fastfetch 2>/dev/null || true" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Set up Node.js global packages" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "if command -v npm &> /dev/null; then" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "    npm install -g yarn typescript ts-node" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Set up Python global packages" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "if command -v pip3 &> /dev/null; then" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "    pip3 install --upgrade pip" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "    pip3 install virtualenv black flake8 mypy pytest" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "# Disable this service after first run" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    echo "systemctl disable orb-cosmic-firstboot.service" >> /usr/bin/orb-cosmic-firstboot.sh && \
-    chmod +x /usr/bin/orb-cosmic-firstboot.sh && \
-    systemctl enable orb-cosmic-firstboot.service
+    echo "#!/bin/bash" > /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Ensure GDM is enabled" >> /usr/bin/orb-firstboot.sh && \
+    echo "if [ -f /usr/lib/systemd/system/gdm.service ]; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    systemctl enable gdm.service" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "systemctl set-default graphical.target" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Set zsh as default shell for future users" >> /usr/bin/orb-firstboot.sh && \
+    echo "sed -i 's|^SHELL=.*|SHELL=/bin/zsh|' /etc/default/useradd" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Configure neofetch as fallback for fastfetch" >> /usr/bin/orb-firstboot.sh && \
+    echo "if ! command -v fastfetch &> /dev/null && command -v neofetch &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    ln -sf /usr/bin/neofetch /usr/local/bin/fastfetch 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Set up Node.js global packages" >> /usr/bin/orb-firstboot.sh && \
+    echo "if command -v npm &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    npm install -g yarn typescript ts-node" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Set up Python global packages" >> /usr/bin/orb-firstboot.sh && \
+    echo "if command -v pip3 &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    pip3 install --upgrade pip" >> /usr/bin/orb-firstboot.sh && \
+    echo "    pip3 install virtualenv black flake8 mypy pytest" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/orb-firstboot.sh && \
+    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/orb-firstboot.sh && \
+    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Disable this service after first run" >> /usr/bin/orb-firstboot.sh && \
+    echo "systemctl disable orb-firstboot.service" >> /usr/bin/orb-firstboot.sh && \
+    chmod +x /usr/bin/orb-firstboot.sh
 
 # Copy override files and configure the system
 COPY override /
 
 # ==========================================
-# SECTION 12: OS BRANDING
+# SECTION 11: OS BRANDING
 # ==========================================
 # Update OS branding
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
@@ -569,10 +542,9 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Update welcome message
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
-    echo "Welcome to Orb OS with COSMIC desktop environment!" > /etc/motd && \
+    echo "Welcome to Orb OS with COSMIC-like desktop environment!" > /etc/motd && \
     # Copy branding to permanent location
     cp /etc/os-release /etc/orb-os-release
 
-# Final systemd configuration to ensure graphical boot
-RUN systemctl set-default graphical.target && \
-    systemctl enable gdm.service
+# Final systemd configuration
+RUN systemctl set-default graphical.target
