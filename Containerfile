@@ -97,9 +97,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Add COPR for COSMIC desktop environment
-    curl -Lo /etc/yum.repos.d/_copr_tpilvistki-cosmic.repo \
-    https://copr.fedorainfracloud.org/coprs/tpilvistki/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/tpilvistki-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
     # Add NodeJS repository
     curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
     # Add PostgreSQL repository
@@ -116,13 +113,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Install desktop environment and core packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # First attempt to install COSMIC packages if available
-    rpm-ostree install \
-    cosmic-desktop \
-    cosmic-session \
-    cosmic-settings \
-    || true && \
-    # Install GNOME as fallback if COSMIC packages fail
+    # Install GNOME desktop environment
     rpm-ostree install \
     gdm \
     gnome-shell \
@@ -342,8 +333,8 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "# Desktop environment variables" > /etc/environment.d/90-desktop-env.conf && \
     echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-desktop-env.conf && \
     echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-desktop-env.conf && \
-    echo "XDG_CURRENT_DESKTOP=GNOME:cosmic" >> /etc/environment.d/90-desktop-env.conf && \
-    echo "XDG_SESSION_DESKTOP=cosmic" >> /etc/environment.d/90-desktop-env.conf && \
+    echo "XDG_CURRENT_DESKTOP=GNOME" >> /etc/environment.d/90-desktop-env.conf && \
+    echo "XDG_SESSION_DESKTOP=gnome" >> /etc/environment.d/90-desktop-env.conf && \
     echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-desktop-env.conf && \
     echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-desktop-env.conf && \
     echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-desktop-env.conf && \
@@ -357,19 +348,12 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     mkdir -p /usr/share/wayland-sessions && \
     mkdir -p /usr/share/xsessions && \
     # Create GNOME Wayland session file
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    echo "Name=GNOME on Wayland" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    echo "Comment=This session logs you into GNOME" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    echo "Exec=gnome-session" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    echo "Type=Application" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    echo "DesktopNames=GNOME" >> /usr/share/wayland-sessions/gnome-wayland.desktop && \
-    # Create COSMIC session file if cosmic-session is installed
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Name=COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Comment=This session logs you into COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Exec=cosmic-session" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Type=Application" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "DesktopNames=cosmic" >> /usr/share/wayland-sessions/cosmic.desktop && \
+    echo "[Desktop Entry]" > /usr/share/wayland-sessions/gnome.desktop && \
+    echo "Name=GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
+    echo "Comment=This session logs you into GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
+    echo "Exec=gnome-session" >> /usr/share/wayland-sessions/gnome.desktop && \
+    echo "Type=Application" >> /usr/share/wayland-sessions/gnome.desktop && \
+    echo "DesktopNames=GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
     # Create X11 fallback session
     echo "[Desktop Entry]" > /usr/share/xsessions/gnome-xorg.desktop && \
     echo "Name=GNOME on Xorg" >> /usr/share/xsessions/gnome-xorg.desktop && \
@@ -418,6 +402,10 @@ RUN mkdir -p /etc/dconf/db/local.d && \
     echo "binding='<Super>t'" >> /etc/dconf/db/local.d/02-keybindings && \
     echo "command='alacritty'" >> /etc/dconf/db/local.d/02-keybindings && \
     echo "name='Terminal'" >> /etc/dconf/db/local.d/02-keybindings && \
+    # Dock settings to make it more like COSMIC
+    echo "[org/gnome/shell]" > /etc/dconf/db/local.d/03-dock && \
+    echo "favorite-apps=['chromium-browser.desktop', 'org.gnome.Terminal.desktop', 'org.gnome.Nautilus.desktop', 'org.gnome.Settings.desktop']" >> /etc/dconf/db/local.d/03-dock && \
+    echo "" >> /etc/dconf/db/local.d/03-dock && \
     # Update dconf database
     mkdir -p /etc/dconf/profile && \
     echo "user-db:user" > /etc/dconf/profile/user && \
@@ -431,7 +419,7 @@ RUN mkdir -p /etc/dconf/db/local.d && \
 # Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
     echo "[Unit]" > /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "Description=Configure Orb OS COSMIC on First Boot" >> /usr/lib/systemd/system/orb-firstboot.service && \
+    echo "Description=Configure Orb OS COSMIC-like on First Boot" >> /usr/lib/systemd/system/orb-firstboot.service && \
     echo "After=network.target" >> /usr/lib/systemd/system/orb-firstboot.service && \
     echo "" >> /usr/lib/systemd/system/orb-firstboot.service && \
     echo "[Service]" >> /usr/lib/systemd/system/orb-firstboot.service && \
@@ -506,10 +494,10 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "VARIANT=COSMIC" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-09 11:28:37" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-09 11:39:17" > /etc/orb-os/version && \
     # Update welcome and issue files
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
-    echo "Welcome to Orb OS with COSMIC desktop environment!" > /etc/motd && \
+    echo "Welcome to Orb OS with COSMIC-like desktop environment!" > /etc/motd && \
     # Copy branding to permanent location
     cp /etc/os-release /etc/orb-os-release
