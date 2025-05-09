@@ -82,6 +82,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Remove unnecessary packages
     rpm-ostree override remove \
     glibc32 \
+    firefox \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
@@ -99,17 +100,28 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Add Hyprland COPR repository
     curl -Lo /etc/yum.repos.d/_copr_solopasha-hyprland.repo \
     https://copr.fedorainfracloud.org/coprs/solopasha/hyprland/repo/fedora-"${FEDORA_MAJOR_VERSION}"/solopasha-hyprland-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add NodeJS repository
+    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - && \
+    # Add PostgreSQL repository
+    dnf install -y https://download.postgresql.org/pub/repos/yum/reporpms/F-$(rpm -E %fedora)-x86_64/pgdg-fedora-repo-latest.noarch.rpm && \
     # Add RPM Fusion repositories
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
+    # Add Zen Browser repository
+    curl -Lo /etc/yum.repos.d/zen-browser.repo \
+    https://download.opensuse.org/repositories/home:/ungoogled_chromium/Fedora_$(rpm -E %fedora)/home:ungoogled_chromium.repo && \
+    # Add Redis repository
+    dnf install -y https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm && \
+    dnf module reset -y php && \
+    dnf module enable -y redis:remi-7.0 && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 3: HYPRLAND & DEPENDENCIES INSTALLATION
 # ==========================================
-# Install Hyprland and dependencies based on the hyprdots repository
+# Install Hyprland and dependencies
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     # Core Hyprland packages
@@ -120,12 +132,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     grimblast \
     # WM utilities
     wl-clipboard \
-    go \
     gtk3-devel \
     xdg-utils \
     swappy \
-    rust \
-    cargo \
     # Fonts and themes
     google-noto-emoji-fonts \
     google-noto-emoji-color-fonts \
@@ -150,14 +159,81 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # System utilities
     polkit-qt6-1 \
     lsd \
-    neofetch \
-    # Handle NVIDIA detection automatically during first boot
+    fastfetch \
+    tmux \
+    # Text editors
+    neovim \
+    # Terminal
+    ghostty \
+    # Browser
+    ungoogled-chromium \
+    # YoRHa theme dependencies
+    eww \
+    jq \
+    socat \
+    unzip \
+    rofi-wayland \
+    papirus-icon-theme \
+    inter-fonts \
+    jetbrains-mono-fonts \
+    terminus-fonts \
+    nerd-fonts \
+    fontawesome-fonts \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 4: HYPRLAND APPS & ENVIRONMENT
+# SECTION 4: PROGRAMMING LANGUAGES & TOOLS
+# ==========================================
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    # Development tools and build essentials
+    gcc \
+    gcc-c++ \
+    make \
+    cmake \
+    automake \
+    autoconf \
+    libtool \
+    pkgconf \
+    git \
+    vim \
+    # NodeJS
+    nodejs \
+    npm \
+    # Golang
+    golang \
+    # Java
+    java-17-openjdk \
+    java-17-openjdk-devel \
+    maven \
+    # Python
+    python3 \
+    python3-pip \
+    python3-devel \
+    python3-virtualenv \
+    # C/C++
+    clang \
+    clang-tools-extra \
+    gdb \
+    # PostgreSQL CLI tools
+    postgresql15-client \
+    pgcli \
+    # Redis server and CLI
+    redis \
+    # Development libraries
+    zlib-devel \
+    bzip2-devel \
+    openssl-devel \
+    readline-devel \
+    sqlite-devel \
+    || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 5: HYPRLAND APPS & ENVIRONMENT
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
@@ -192,7 +268,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     dolphin \
     kde-cli-tools \
     sddm \
-    fastfetch \
+    # Additional YoRHa theme dependencies
+    kitty \
+    mpd \
+    mpc \
+    ncmpcpp \
+    btop \
     || true && \
     # Special cases for Hyprland environment
     if command -v pipx &> /dev/null; then \
@@ -202,27 +283,105 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 5: HYPRDOTS CONFIGURATION
+# SECTION 6: YORHA CONFIGURATION
 # ==========================================
-# Clone and set up the hyprdots configuration
-RUN mkdir -p /tmp/hyprdots && \
-    cd /tmp/hyprdots && \
-    # Clone hyprdots configurations
-    git clone https://github.com/Ariffansyah/fedora-hyprland-hyprdots.git && \
-    cd fedora-hyprland-hyprdots/build-hyprland-and-apps && \
-    ./install_all.sh && \
+# Clone and set up the YoRHa configuration
+RUN mkdir -p /tmp/yorha && \
+    cd /tmp/yorha && \
+    # Clone YoRHa configurations
+    git clone -b hyprland-yorha https://github.com/flickowoa/dotfiles.git && \
+    # Create skeleton configs directory
+    mkdir -p /etc/skel/.config && \
+    # Copy YoRHa configurations to skeleton
+    cp -r dotfiles/.config/hypr /etc/skel/.config/ && \
+    cp -r dotfiles/.config/eww /etc/skel/.config/ && \
+    cp -r dotfiles/.config/rofi /etc/skel/.config/ && \
+    cp -r dotfiles/.config/kitty /etc/skel/.config/ && \
+    cp -r dotfiles/.config/waybar /etc/skel/.config/ && \
+    cp -r dotfiles/.config/dunst /etc/skel/.config/ && \
+    cp -r dotfiles/.config/cava /etc/skel/.config/ && \
+    cp -r dotfiles/.config/mpd /etc/skel/.config/ && \
+    cp -r dotfiles/.config/ncmpcpp /etc/skel/.config/ && \
+    # Create ghostty config directory
+    mkdir -p /etc/skel/.config/ghostty && \
+    # Create basic ghostty config
+    echo "# Ghostty Terminal Configuration" > /etc/skel/.config/ghostty/config && \
+    echo "theme = catppuccin-mocha" >> /etc/skel/.config/ghostty/config && \
+    echo "font-family = JetBrainsMono Nerd Font" >> /etc/skel/.config/ghostty/config && \
+    echo "font-size = 12" >> /etc/skel/.config/ghostty/config && \
+    echo "cursor-style = beam" >> /etc/skel/.config/ghostty/config && \
+    echo "background-opacity = 0.95" >> /etc/skel/.config/ghostty/config && \
+    echo "window-padding-x = 10" >> /etc/skel/.config/ghostty/config && \
+    echo "window-padding-y = 10" >> /etc/skel/.config/ghostty/config && \
+    # Create Neovim config directory
+    mkdir -p /etc/skel/.config/nvim && \
+    # Create basic Neovim init.lua
+    echo "-- Neovim Configuration" > /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.number = true" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.relativenumber = true" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.shiftwidth = 2" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.tabstop = 2" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.expandtab = true" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.cursorline = true" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.termguicolors = true" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.mouse = 'a'" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.opt.clipboard = 'unnamedplus'" >> /etc/skel/.config/nvim/init.lua && \
+    echo "vim.g.mapleader = ' '" >> /etc/skel/.config/nvim/init.lua && \
+    # Set up tmux configuration
+    echo "# Tmux Configuration" > /etc/skel/.tmux.conf && \
+    echo "set -g default-terminal \"screen-256color\"" >> /etc/skel/.tmux.conf && \
+    echo "set -g status-style bg=default,fg=white" >> /etc/skel/.tmux.conf && \
+    echo "set -g status-left-length 40" >> /etc/skel/.tmux.conf && \
+    echo "set -g mouse on" >> /etc/skel/.tmux.conf && \
+    echo "set -sg escape-time 0" >> /etc/skel/.tmux.conf && \
+    echo "set -g base-index 1" >> /etc/skel/.tmux.conf && \
+    echo "setw -g pane-base-index 1" >> /etc/skel/.tmux.conf && \
+    echo "bind r source-file ~/.tmux.conf \; display \"Config Reloaded\"" >> /etc/skel/.tmux.conf && \
+    echo "bind | split-window -h" >> /etc/skel/.tmux.conf && \
+    echo "bind - split-window -v" >> /etc/skel/.tmux.conf && \
+    echo "bind -r C-h select-window -t :-" >> /etc/skel/.tmux.conf && \
+    echo "bind -r C-l select-window -t :+" >> /etc/skel/.tmux.conf && \
+    # Update Hyprland config to use ghostty as default terminal
+    sed -i 's/^exec-once = kitty/exec-once = ghostty/' /etc/skel/.config/hypr/hyprland.conf && \
+    sed -i 's/bind = $mainMod, RETURN, exec, kitty/bind = $mainMod, RETURN, exec, ghostty/' /etc/skel/.config/hypr/hyprland.conf && \
+    # Copy fonts if present
+    if [ -d "dotfiles/.local/share/fonts" ]; then \
+    mkdir -p /etc/skel/.local/share/fonts && \
+    cp -r dotfiles/.local/share/fonts/* /etc/skel/.local/share/fonts/ && \
+    fc-cache -f; \
+    fi && \
+    # Copy wallpapers if present
+    if [ -d "dotfiles/wallpapers" ]; then \
+    mkdir -p /etc/skel/wallpapers && \
+    cp -r dotfiles/wallpapers/* /etc/skel/wallpapers/; \
+    fi && \
+    # Set Zen Browser as default browser
+    echo "[Default Applications]" > /etc/skel/.config/mimeapps.list && \
+    echo "text/html=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/http=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/https=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/ftp=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/chrome=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-htm=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-html=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-shtml=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/xhtml+xml=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-xhtml=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "application/x-extension-xht=org.chromium.Chromium.desktop" >> /etc/skel/.config/mimeapps.list && \
     # Cleanup
-    rm -rf /tmp/hyprdots && \
+    rm -rf /tmp/yorha && \
     ostree container commit
 
 # ==========================================
-# SECTION 6: ADDITIONAL CONFIG & BOOT SETUP
+# SECTION 7: ADDITIONAL CONFIG & BOOT SETUP
 # ==========================================
-# Configure SDDM, autostart, and environment variables
-RUN mkdir -p /etc/skel/.config/hypr && \
+# Configure autostart and environment variables
+RUN mkdir -p /etc/skel/.config/hypr/autostart && \
     # Create autostart file
-    echo "# Autostart applications" > /etc/skel/.config/hypr/autostart.sh && \
-    echo "#!/bin/bash" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "#!/bin/bash" > /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# Start eww daemon" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "eww daemon &" >> /etc/skel/.config/hypr/autostart.sh && \
     echo "" >> /etc/skel/.config/hypr/autostart.sh && \
     echo "# Start waybar" >> /etc/skel/.config/hypr/autostart.sh && \
     echo "waybar &" >> /etc/skel/.config/hypr/autostart.sh && \
@@ -243,6 +402,9 @@ RUN mkdir -p /etc/skel/.config/hypr && \
     echo "# Authentication agent" >> /etc/skel/.config/hypr/autostart.sh && \
     echo "/usr/libexec/polkit-kde-authentication-agent-1 &" >> /etc/skel/.config/hypr/autostart.sh && \
     echo "" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "# MPD daemon start (for music in eww widget)" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "[ ! -s ~/.config/mpd/pid ] && mpd" >> /etc/skel/.config/hypr/autostart.sh && \
+    echo "" >> /etc/skel/.config/hypr/autostart.sh && \
     # Make autostart executable
     chmod +x /etc/skel/.config/hypr/autostart.sh && \
     # Add environment variables to ensure proper Wayland integration
@@ -259,13 +421,16 @@ RUN mkdir -p /etc/skel/.config/hypr && \
     echo "SDL_VIDEODRIVER=wayland" >> /etc/environment.d/90-hyprland.conf && \
     echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-hyprland.conf && \
     echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-hyprland.conf && \
+    echo "GOPATH=/usr/local/go" >> /etc/environment.d/90-hyprland.conf && \
+    echo "PATH=$PATH:/usr/local/go/bin" >> /etc/environment.d/90-hyprland.conf && \
     # Setup SDDM
     mkdir -p /etc/sddm.conf.d && \
     echo "[General]" > /etc/sddm.conf.d/10-wayland.conf && \
     echo "DisplayServer=wayland" >> /etc/sddm.conf.d/10-wayland.conf && \
     echo "GreeterEnvironment=QT_QPA_PLATFORM=wayland" >> /etc/sddm.conf.d/10-wayland.conf && \
-    # Enable SDDM
+    # Enable services
     systemctl enable sddm.service || true && \
+    systemctl enable redis.service || true && \
     # Create Hyprland session file
     mkdir -p /usr/share/wayland-sessions && \
     echo "[Desktop Entry]" > /usr/share/wayland-sessions/hyprland.desktop && \
@@ -288,7 +453,7 @@ RUN mkdir -p /etc/skel/.config/hypr && \
     ostree container commit
 
 # ==========================================
-# SECTION 7: KDE-LIKE SDDM THEME SETUP
+# SECTION 8: KDE-LIKE SDDM THEME SETUP
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install SDDM KDE theme dependencies
@@ -319,58 +484,86 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 8: FIRST-BOOT SETUP SCRIPT
+# SECTION 9: FIRST-BOOT SETUP SCRIPT
 # ==========================================
 # Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
-    echo "[Unit]" > /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "Description=Configure Hyprdots on First Boot" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "After=network.target" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "[Service]" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "Type=oneshot" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "ExecStart=/usr/bin/hyprdots-firstboot.sh" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "[Install]" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
-    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/hyprdots-firstboot.service && \
+    echo "[Unit]" > /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "Description=Configure YoRHa Theme on First Boot" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "After=network.target" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "[Service]" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "Type=oneshot" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "ExecStart=/usr/bin/yorha-firstboot.sh" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "[Install]" >> /usr/lib/systemd/system/yorha-firstboot.service && \
+    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/yorha-firstboot.service && \
     mkdir -p /usr/bin && \
-    echo "#!/bin/bash" > /usr/bin/hyprdots-firstboot.sh && \
-    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "# Configure SDDM to look like KDE" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "if [ -d \"/usr/share/sddm/themes/breeze\" ]; then" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    echo \"Configuring SDDM with KDE Breeze theme...\"" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    # Make sure SDDM uses the breeze theme" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    mkdir -p /etc/sddm.conf.d" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    echo \"[Theme]\" > /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    echo \"Current=breeze\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    echo \"CursorTheme=breeze_cursors\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    # Copy KDE Plasma wallpaper for SDDM background if available" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    if [ -d \"/usr/share/wallpapers/Next\" ]; then" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "        cp -r /usr/share/wallpapers/Next /usr/share/sddm/themes/breeze/" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "        echo \"Background=/usr/share/sddm/themes/breeze/Next/contents/images/1920x1080.png\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    fi" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "fi" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "fi" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "# Create directories for user themes" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "mkdir -p /etc/xdg/gtk-2.0" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "mkdir -p /etc/xdg/gtk-3.0" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "mkdir -p /etc/xdg/gtk-4.0" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "# Disable this service after first run" >> /usr/bin/hyprdots-firstboot.sh && \
-    echo "systemctl disable hyprdots-firstboot.service" >> /usr/bin/hyprdots-firstboot.sh && \
-    chmod +x /usr/bin/hyprdots-firstboot.sh && \
-    systemctl enable hyprdots-firstboot.service && \
+    echo "#!/bin/bash" > /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Configure SDDM to look like KDE" >> /usr/bin/yorha-firstboot.sh && \
+    echo "if [ -d \"/usr/share/sddm/themes/breeze\" ]; then" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    echo \"Configuring SDDM with KDE Breeze theme...\"" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    # Make sure SDDM uses the breeze theme" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    mkdir -p /etc/sddm.conf.d" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    echo \"[Theme]\" > /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    echo \"Current=breeze\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    echo \"CursorTheme=breeze_cursors\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    # Copy KDE Plasma wallpaper for SDDM background if available" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    if [ -d \"/usr/share/wallpapers/Next\" ]; then" >> /usr/bin/yorha-firstboot.sh && \
+    echo "        cp -r /usr/share/wallpapers/Next /usr/share/sddm/themes/breeze/" >> /usr/bin/yorha-firstboot.sh && \
+    echo "        echo \"Background=/usr/share/sddm/themes/breeze/Next/contents/images/1920x1080.png\" >> /etc/sddm.conf.d/10-kde-theme.conf" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    fi" >> /usr/bin/yorha-firstboot.sh && \
+    echo "fi" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Setup programming language environments" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Set up Node.js global packages" >> /usr/bin/yorha-firstboot.sh && \
+    echo "npm install -g yarn typescript ts-node nodemon" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Set up Python global packages" >> /usr/bin/yorha-firstboot.sh && \
+    echo "pip3 install --upgrade pip" >> /usr/bin/yorha-firstboot.sh && \
+    echo "pip3 install virtualenv black flake8 mypy pytest jupyter" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Set up Go environment" >> /usr/bin/yorha-firstboot.sh && \
+    echo "mkdir -p /usr/local/go" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'export GOPATH=/usr/local/go' >> /etc/profile.d/go.sh" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'export PATH=\$PATH:/usr/local/go/bin' >> /etc/profile.d/go.sh" >> /usr/bin/yorha-firstboot.sh && \
+    echo "chmod +x /etc/profile.d/go.sh" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Set up Neovim plugins" >> /usr/bin/yorha-firstboot.sh && \
+    echo "mkdir -p /etc/skel/.local/share/nvim/site/pack/packer/start" >> /usr/bin/yorha-firstboot.sh && \
+    echo "git clone --depth 1 https://github.com/wbthomason/packer.nvim /etc/skel/.local/share/nvim/site/pack/packer/start/packer.nvim" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Setup Redis service" >> /usr/bin/yorha-firstboot.sh && \
+    echo "systemctl enable redis" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/yorha-firstboot.sh && \
+    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/yorha-firstboot.sh && \
+    echo "fi" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Set up GTK theme to match YoRHa style" >> /usr/bin/yorha-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-2.0" >> /usr/bin/yorha-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-3.0" >> /usr/bin/yorha-firstboot.sh && \
+    echo "mkdir -p /etc/xdg/gtk-4.0" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Ensure EWW service is running for logged in users" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'systemctl --user enable --now eww.service' > /etc/skel/.config/autostart/eww.desktop" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Configure default browser" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'xdg-settings set default-web-browser org.chromium.Chromium.desktop' >> /etc/skel/.bashrc" >> /usr/bin/yorha-firstboot.sh && \
+    echo "echo 'xdg-settings set default-web-browser org.chromium.Chromium.desktop' >> /etc/skel/.zshrc" >> /usr/bin/yorha-firstboot.sh && \
+    echo "" >> /usr/bin/yorha-firstboot.sh && \
+    echo "# Disable this service after first run" >> /usr/bin/yorha-firstboot.sh && \
+    echo "systemctl disable yorha-firstboot.service" >> /usr/bin/yorha-firstboot.sh && \
+    chmod +x /usr/bin/yorha-firstboot.sh && \
+    systemctl enable yorha-firstboot.service && \
     ostree container commit
 
 # ==========================================
-# SECTION 9: COMPLETE SDDM CONFIGURATION
+# SECTION 10: COMPLETE SDDM CONFIGURATION
 # ==========================================
 # Create complete SDDM configuration with KDE look and feel
 RUN echo "[Autologin]" > /etc/sddm.conf && \
@@ -420,18 +613,21 @@ COPY override /
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Update system branding more thoroughly from Kinoite to Orb OS
     sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
-    sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS Hyprland Hyprdots"/' /etc/os-release && \
+    sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS Hyprland YoRHa"/' /etc/os-release && \
     sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
     sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
     # Add custom variant information
-    echo "VARIANT_ID=hyprland-hyprdots" >> /etc/os-release && \
-    echo "VARIANT=Hyprland-Hyprdots" >> /etc/os-release && \
+    echo "VARIANT_ID=hyprland-yorha" >> /etc/os-release && \
+    echo "VARIANT=Hyprland-YoRHa" >> /etc/os-release && \
+    # Set build date
+    echo "BUILD_DATE=\"2025-05-09 05:37:32\"" >> /etc/os-release && \
+    echo "BUILD_USER=\"AriffansyahI\"" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS Hyprland Hyprdots - $(date +%Y%m%d)" > /etc/orb-os/version && \
+    echo "Orb OS Hyprland YoRHa - Build 2025-05-09 05:37:32" > /etc/orb-os/version && \
     # Update welcome and issue files
-    echo "Orb OS Hyprland Hyprdots (\l)" > /etc/issue && \
-    echo "Orb OS Hyprland Hyprdots" > /etc/issue.net && \
-    echo "Welcome to Orb OS Hyprland Hyprdots!" > /etc/motd && \
+    echo "Orb OS Hyprland YoRHa (\l)" > /etc/issue && \
+    echo "Orb OS Hyprland YoRHa" > /etc/issue.net && \
+    echo "Welcome to Orb OS Hyprland with YoRHa theme!" > /etc/motd && \
     # Copy branding to permanent location
     cp /etc/os-release /etc/orb-os-release
