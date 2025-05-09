@@ -108,18 +108,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
     https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
-    # Add Redis repository (use manual approach to avoid /opt conflict)
-    mkdir -p /tmp/remi && \
-    cd /tmp/remi && \
-    curl -O https://rpms.remirepo.net/fedora/remi-release-$(rpm -E %fedora).rpm && \
-    rpm2cpio remi-release-$(rpm -E %fedora).rpm | cpio -idmv && \
-    cp -rf ./etc/yum.repos.d/* /etc/yum.repos.d/ && \
-    cp -rf ./etc/pki /etc/ && \
-    cd / && \
-    rm -rf /tmp/remi && \
-    # Enable Redis module
-    dnf module reset -y php && \
-    dnf module enable -y redis:remi-7.0 && \
     # For ungoogled-chromium, install from dnf directly rather than using a separate repo
     dnf copr enable -y flatcap/ungoogled-chromium && \
     /usr/libexec/build/clean.sh && \
@@ -543,7 +531,9 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "git clone --depth 1 https://github.com/wbthomason/packer.nvim /etc/skel/.local/share/nvim/site/pack/packer/start/packer.nvim" >> /usr/bin/yorha-firstboot.sh && \
     echo "" >> /usr/bin/yorha-firstboot.sh && \
     echo "# Setup Redis service" >> /usr/bin/yorha-firstboot.sh && \
-    echo "systemctl enable redis" >> /usr/bin/yorha-firstboot.sh && \
+    echo "if command -v redis-server &> /dev/null; then" >> /usr/bin/yorha-firstboot.sh && \
+    echo "    systemctl enable redis" >> /usr/bin/yorha-firstboot.sh && \
+    echo "fi" >> /usr/bin/yorha-firstboot.sh && \
     echo "" >> /usr/bin/yorha-firstboot.sh && \
     echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/yorha-firstboot.sh && \
     echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/yorha-firstboot.sh && \
@@ -628,7 +618,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "VARIANT=Hyprland-YoRHa" >> /etc/os-release && \
     # Create custom branding files
     mkdir -p /etc/orb-os && \
-    echo "Orb OS Hyprland YoRHa - 2025-05-09 05:48:46" > /etc/orb-os/version && \
+    echo "Orb OS Hyprland YoRHa - 2025-05-09 06:34:45" > /etc/orb-os/version && \
     # Update welcome and issue files
     echo "Orb OS Hyprland YoRHa (\l)" > /etc/issue && \
     echo "Orb OS Hyprland YoRHa" > /etc/issue.net && \
