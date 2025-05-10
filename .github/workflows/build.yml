@@ -181,21 +181,29 @@ jobs:
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
           --tag ${{ env.IMAGE_NAME }}:latest .
 
-      # Apply rechunk to optimize the image
+          # Apply rechunk to optimize the image
       - name: Apply Rechunk
         run: |
           echo "Applying rechunk to optimize image..."
-          # The correct syntax for rechunk
+    
+          # Create an OSTree repository first (required for rechunk)
+          mkdir -p /tmp/ostree-repo
+          ostree --repo=/tmp/ostree-repo init --mode=archive-z2
+    
+          # Export the image to an OSTree repository
           sudo podman run --privileged --rm \
+          -v /tmp/ostree-repo:/tmp/ostree-repo \
           -v /var/lib/containers:/var/lib/containers \
           ghcr.io/hhd-dev/rechunk:v1.1.2 \
+          rechunk \
+          --repo /tmp/ostree-repo \
           ${{ env.IMAGE_NAME }}:latest \
           ${{ env.IMAGE_NAME }}:rechunked
     
-          # Replace the original image with the rechunked one
-          sudo podman rmi ${{ env.IMAGE_NAME }}:latest
-          sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
-          echo "Rechunk completed successfully!"
+    # Replace the original image with the rechunked one
+    sudo podman rmi ${{ env.IMAGE_NAME }}:latest || true
+    sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
+    echo "Rechunk completed successfully!"
 
       # Deleting unused images after build
       - name: Remove auxiliary images
