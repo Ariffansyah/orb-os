@@ -200,10 +200,10 @@ jobs:
           ${{ env.IMAGE_NAME }}:latest \
           ${{ env.IMAGE_NAME }}:rechunked
     
-    # Replace the original image with the rechunked one
-    sudo podman rmi ${{ env.IMAGE_NAME }}:latest || true
-    sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
-    echo "Rechunk completed successfully!"
+          # Replace the original image with the rechunked one
+          sudo podman rmi ${{ env.IMAGE_NAME }}:latest || true
+          sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
+          echo "Rechunk completed successfully!"
 
       # Deleting unused images after build
       - name: Remove auxiliary images
