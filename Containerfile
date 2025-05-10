@@ -242,22 +242,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Install standard Fedora kernel
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree cliwrap install-to-root / && \
-    echo "Will install standard Fedora kernel" && \
-    rpm-ostree install \
-    kernel \
-    kernel-core \
-    kernel-modules && \
-    rpm-ostree override replace \
-    --experimental \
-    bootc \
-    rpm-ostree \
-    rpm-ostree-libs && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
 # Setup firmware
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     mkdir -p /tmp/linux-firmware-neptune && \
