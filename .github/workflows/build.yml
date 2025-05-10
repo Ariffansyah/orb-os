@@ -17,11 +17,11 @@ env:
   IMAGE_DESC: "My Customized Universal Blue Image"
   IMAGE_REGISTRY: "ghcr.io/${{ github.repository_owner }}"  # do not edit
   ARTIFACTHUB_LOGO_URL: "https://avatars.githubusercontent.com/u/120078124?s=200&v=4"  # You should put your own image here so that you get a fancy profile image on https://artifacthub.io/!
-  FEDORA_VERSION: "42"
+  FEDORA_VERSION: "42"  # Using Fedora 42 as requested
   IS_STABLE_VERSION: "true"  # Set to true if you want to publish the image as stable
   PULL_IMAGE_REGISTRY: "ghcr.io"  # The registry to pull the base image from
-  BASE_IMAGE_NAME: "ublue-os"  # The name of the base image
-  BASE_IMAGE_FLAVOR: "base-main"
+  BASE_IMAGE_NAME: "ublue-os"  # The name of the base image organization
+  BASE_IMAGE_FLAVOR: "base-main"  # The base image name is base-main
   KERNEL_FLAVOR: "fedora"  # The kernel flavor to use
   KERNEL_VERSION: ""
   DEFAULT_TAG: "latest"
@@ -56,14 +56,18 @@ jobs:
           echo "date=$(date -u +%Y\-%m\-%d\T%H\:%M\:%S\Z)" >> $GITHUB_OUTPUT
           echo "datenum=$(date -u +%Y%m%d)" >> $GITHUB_OUTPUT
 
-      # Image metadata for https://artifacthub.io/ - This is optional but is highly recommended so we all can get a index of all the custom images
-      # The metadata by itself is not going to do anything, you choose if you want your image to be on ArtifactHub or not.
+      # Login to GitHub Container Registry before any pulls
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Image Metadata
         uses: docker/metadata-action@902fa8ec7d6ecbf8d84d538b9b233a880e428804 # v5
         id: metadata
         with:
-          # This generates all the tags for your image, you can add custom tags here too!
-          # By default, it should generate "latest" and "latest.(date here)".
           tags: |
             type=raw,value=latest
             type=raw,value=latest.{{date 'YYYYMMDD'}}
@@ -234,74 +238,4 @@ jobs:
           openssl x509 -in akmods.der -out akmods.crt
           
           # Try verification but don't fail build if it doesn't work
-          sbverify --cert kernel-sign.crt vmlinuz || echo "Verification with first cert failed"
-          sbverify --cert akmods.crt vmlinuz || echo "Verification with second cert failed"
-
-      # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
-      # @macbre/push-to-ghcr/issues/12
-      - name: Lowercase Registry
-        id: registry_case
-        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
-        with:
-          string: ${{ env.IMAGE_REGISTRY }}
-
-      - name: Lowercase Owner
-        id: owner_case
-        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
-        with:
-          string: ${{ github.repository_owner }}
-
-      - name: Lowercase Image
-        id: image_case
-        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
-        with:
-          string: ${{ env.IMAGE_NAME }}
-
-      # Login to the registry before rechunk
-      - name: Login to GitHub Container Registry
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
-
-      # Fixed the registry path issue in the push step
-      - name: Push Original Image
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          echo "Pushing original image with multiple tags"
-    
-          # Fixed registry path
-          REGISTRY_PATH="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-    
-          # Tag and push latest
-          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
-          sudo podman push $REGISTRY_PATH:latest
-          echo "Pushed $REGISTRY_PATH:latest"
-    
-          # Tag and push date-based tags
-          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
-          sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
-          echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
-    
-          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
-          sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
-          echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
-
-      # This section is optional and only needs to be enabled if you plan on distributing
-      # your project for others to consume. You will need to create a public and private key
-      # using Cosign and save the private key as a repository secret in Github for this workflow
-      # to consume. For more details, review the image signing section of the README.
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-
-      - name: Sign container image
-        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
-        run: |
-          # Fixed the image path here too
-          IMAGE_FULL="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
-            cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
-          done
-        env:
-          COSIGN_EXPERIMENTAL: false
-          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+          sbverify --cert kernel-sign.

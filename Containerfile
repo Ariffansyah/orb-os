@@ -4,7 +4,7 @@ ARG KERNEL_FLAVOR="${KERNEL_FLAVOR:-fedora}"
 ARG KERNEL_VERSION="${KERNEL_VERSION:-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')}"
 ARG SOURCE_IMAGE="${SOURCE_IMAGE:-$BASE_IMAGE_NAME-$BASE_IMAGE_FLAVOR}"
 ARG BASE_IMAGE="ghcr.io/ublue-os/${SOURCE_IMAGE}"
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-41}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG JUPITER_FIRMWARE_VERSION="${JUPITER_FIRMWARE_VERSION:-jupiter-20241205.1}"
 ARG SHA_HEAD_SHORT="${SHA_HEAD_SHORT}"
 ARG VERSION_TAG="${VERSION_TAG}"
@@ -19,11 +19,12 @@ ARG KERNEL_FLAVOR="${KERNEL_FLAVOR:-fedora}"
 ARG KERNEL_VERSION="${KERNEL_VERSION:-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')}"
 ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
 ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base-main}"
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-41}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG JUPITER_FIRMWARE_VERSION="${JUPITER_FIRMWARE_VERSION:-jupiter-20241205.1}"
 ARG SHA_HEAD_SHORT="${SHA_HEAD_SHORT}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
+ARG OSTREE_REMOTE="${OSTREE_REMOTE:-ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest}"
 
 COPY system /
 
@@ -209,7 +210,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 #
 # ... and so on, here are more base images
 # Universal Blue Images: https://github.com/orgs/ublue-os/packages
-# Fedora base image: quay.io/fedora/fedora-bootc:41
+# Fedora base image: quay.io/fedora/fedora-bootc:42
 # CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
 
 # Setup Copr repos
@@ -634,6 +635,13 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini && \
+    # Configure ostree remote
+    echo "Setting ostree remote to ${OSTREE_REMOTE}" && \
+    mkdir -p /usr/etc/ostree/remotes.d && \
+    echo "[remote \"orb-os\"]" > /usr/etc/ostree/remotes.d/orb-os.conf && \
+    echo "url=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest" >> /usr/etc/ostree/remotes.d/orb-os.conf && \
+    echo "gpg-verify=false" >> /usr/etc/ostree/remotes.d/orb-os.conf && \
+    echo "tls-permissive=true" >> /usr/etc/ostree/remotes.d/orb-os.conf && \
     # Disabling copr for faster sync
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
