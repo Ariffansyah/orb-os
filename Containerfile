@@ -23,8 +23,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     firefox \
     firefox-langpacks \
     || true && \
-    rpm-ostree cleanup -m \
-    && ostree container commit
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
 
 # ==========================================
 # SECTION 2: Add Repositories
@@ -33,7 +33,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN curl -s https://copr.fedorainfracloud.org/coprs/agriffis/neovim-nightly/repo/fedora-$(rpm -E %fedora)/agriffis-neovim-nightly-fedora-$(rpm -E %fedora).repo > /etc/yum.repos.d/agriffis-neovim-nightly-fedora.repo \
     && curl -s https://download.opensuse.org/repositories/home:/dkalev:/hyprland/Fedora_$(rpm -E %fedora)/home:dkalev:hyprland.repo > /etc/yum.repos.d/hyprland.repo \
     && curl -s https://get.zenith.fedorapeople.org/zenith.repo > /etc/yum.repos.d/zen-browser.repo \
-    && ostree container commit
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
 
 # ==========================================
 # SECTION 3: Install Base RPM Packages
@@ -80,7 +81,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     xdg-desktop-portal-wlr \
     zenith \
     zsh \
-    && ostree container commit
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
 
 # ==========================================
 # SECTION 3.1: Additional Components
