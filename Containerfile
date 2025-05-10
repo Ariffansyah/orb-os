@@ -82,6 +82,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Remove unnecessary packages
     rpm-ostree override remove \
     glibc32 \
+    nvtop \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -113,6 +114,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     nautilus \
     # PostgreSQL CLI tools
     postgresql \
+    # Add Zen Browser installation using Flatpak
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    flatpak install -y flathub org.mozilla.firefox || true && \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -126,6 +130,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ublue-os-update-services \
     firefox firefox-langpacks \
     htop \
+    nvtop \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -272,6 +277,9 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # Install Zen Browser via Flatpak
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    flatpak install -y flathub org.mozilla.firefox || true && \
     # Finishing up
     if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
     if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
