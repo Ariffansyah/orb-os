@@ -202,15 +202,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-## Other possible base images include:
-# FROM ghcr.io/ublue-os/bazzite:stable
-# FROM ghcr.io/ublue-os/bluefin-nvidia:stable
-#
-# ... and so on, here are more base images
-# Universal Blue Images: https://github.com/orgs/ublue-os/packages
-# Fedora base image: quay.io/fedora/fedora-bootc:42
-# CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
-
 # Setup Copr repos
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     if [[ "${FEDORA_MAJOR_VERSION}" == "rawhide" ]]; then \
@@ -258,8 +249,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     kernel \
     kernel-core \
-    kernel-modules \
-    scx-scheds && \
+    kernel-modules && \
     rpm-ostree override replace \
     --experimental \
     bootc \
