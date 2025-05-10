@@ -242,13 +242,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     curl -Lo /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo https://copr.fedorainfracloud.org/coprs/trs-sod/swaylock-effects/repo/fedora-"${FEDORA_MAJOR_VERSION}"/trs-sod-swaylock-effects-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_alebastr-sway-extras.repo https://copr.fedorainfracloud.org/coprs/alebastr/sway-extras/repo/fedora-"${FEDORA_MAJOR_VERSION}"/alebastr-sway-extras-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo https://copr.fedorainfracloud.org/coprs/aeiro/nwg-shell/repo/fedora-"${FEDORA_MAJOR_VERSION}"/aeiro-nwg-shell-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    curl -Lo /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo https://copr.fedorainfracloud.org/coprs/atim/heroic-games-launcher/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-heroic-games-launcher-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/zsh-autosuggest.repo https://download.opensuse.org/repositories/shells:zsh-users:zsh-autosuggestions/Fedora_Rawhide/shells:zsh-users:zsh-autosuggestions.repo && \
     curl -fsSl https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo | tee /etc/yum.repos.d/cloudflare-warp.repo && \
     curl -Lo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo && \
     sed -i 's@gpgcheck=1@gpgcheck=0@g' /etc/yum.repos.d/tailscale.repo && \
     sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
-    curl -Lo /etc/yum.repos.d/negativo17-fedora-steam.repo https://negativo17.org/repos/fedora-steam.repo && \
     curl -Lo /etc/yum.repos.d/negativo17-fedora-rar.repo https://negativo17.org/repos/fedora-rar.repo && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -478,6 +476,17 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
+# Install WinApps dependencies
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    podman-compose \
+    dialog \
+    nmap-ncat \
+    xfreerdp \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
 # Finalize
 COPY override /
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
@@ -490,12 +499,10 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl enable brew-setup.service && \
     systemctl disable brew-upgrade.timer && \
     systemctl disable brew-update.timer && \
-    systemctl disable waydroid-container.service && \
     systemctl --global enable podman.socket && \
     # Enabling just files
     echo "import \"/usr/share/ublue-os/just/80-orb-os.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/81-orb-os-fix.just\"" >> /usr/share/ublue-os/justfile && \
-    echo "import \"/usr/share/ublue-os/just/82-orb-os-waydroid.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/84-orb-os-virt.just\"" >> /usr/share/ublue-os/justfile && \
     # Adding good stuff
     curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
@@ -528,14 +535,12 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hikariknight-looking-glass-kvmfr.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_pgdev-ghostty.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-starship.repo && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_alebastr-sway-extras.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/tailscale.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/charm.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
-    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-steam.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-rar.repo && \
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \

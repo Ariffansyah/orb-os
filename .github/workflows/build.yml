@@ -42,7 +42,6 @@ jobs:
       id-token: write
 
     steps:
-      # These stage versions are pinned by https://github.com/renovatebot/renovate
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
       
@@ -191,7 +190,6 @@ jobs:
 
       # Deleting unused images after build
       - name: Remove auxiliary images
-        # We are tight on space, need at least 2x for OSTree
         run: |
           sudo podman image rm ghcr.io/ublue-os/base-main:${{ env.FEDORA_VERSION }}
 
@@ -244,4 +242,68 @@ jobs:
       # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
       # @macbre/push-to-ghcr/issues/12
       - name: Lowercase Registry
-        id: registry_
+        id: registry_case
+        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
+        with:
+          string: ${{ env.IMAGE_REGISTRY }}
+
+      - name: Lowercase Owner
+        id: owner_case
+        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
+        with:
+          string: ${{ github.repository_owner }}
+
+      - name: Lowercase Image
+        id: image_case
+        uses: ASzc/change-string-case-action@d0603cd0a7dd490be678164909f65c7737470a7f # v6
+        with:
+          string: ${{ env.IMAGE_NAME }}
+
+      # Login to the registry before rechunk
+      - name: Login to GitHub Container Registry
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      # Fixed the registry path issue in the push step
+      - name: Push Original Image
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          echo "Pushing original image with multiple tags"
+    
+          # Fixed registry path
+          REGISTRY_PATH="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+    
+          # Tag and push latest
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
+          sudo podman push $REGISTRY_PATH:latest
+          echo "Pushed $REGISTRY_PATH:latest"
+    
+          # Tag and push date-based tags
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
+          sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
+          echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
+    
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
+          sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
+          echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
+
+      # This section is optional and only needs to be enabled if you plan on distributing
+      # your project for others to consume. You will need to create a public and private key
+      # using Cosign and save the private key as a repository secret in Github for this workflow
+      # to consume. For more details, review the image signing section of the README.
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb # v3.8.2
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+
+      - name: Sign container image
+        if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+        run: |
+          # Fixed the image path here too
+          IMAGE_FULL="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+            cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
+          done
+        env:
+          COSIGN_EXPERIMENTAL: false
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
