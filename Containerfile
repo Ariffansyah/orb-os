@@ -23,7 +23,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     firefox \
     firefox-langpacks \
     || true && \
-    /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
@@ -33,8 +32,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN curl -s https://copr.fedorainfracloud.org/coprs/agriffis/neovim-nightly/repo/fedora-$(rpm -E %fedora)/agriffis-neovim-nightly-fedora-$(rpm -E %fedora).repo > /etc/yum.repos.d/agriffis-neovim-nightly-fedora.repo \
     && curl -s https://download.opensuse.org/repositories/home:/dkalev:/hyprland/Fedora_$(rpm -E %fedora)/home:dkalev:hyprland.repo > /etc/yum.repos.d/hyprland.repo \
     && curl -s https://get.zenith.fedorapeople.org/zenith.repo > /etc/yum.repos.d/zen-browser.repo \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
+    && ostree container commit
 
 # ==========================================
 # SECTION 3: Install Base RPM Packages
@@ -81,8 +79,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     xdg-desktop-portal-wlr \
     zenith \
     zsh \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
+    && ostree container commit
 
 # ==========================================
 # SECTION 3.1: Additional Components
@@ -98,17 +95,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     network-manager-applet \
     || true && \
     systemctl set-default graphical.target && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 3.2: FASTFETCH SETUP
-# ==========================================
-# Ensure fastfetch is properly installed and configured
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install fastfetch
-    rpm-ostree install -y fastfetch && \
-    /usr/libexec/build/clean.sh && \
     ostree container commit
 
 # ==========================================
@@ -346,7 +332,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "CURRENT_USER=Ariffansyah" >> /etc/os-release && \
     # Create version file
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-10 02:06:41" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-10 02:16:41" > /etc/orb-os/version && \
     # Update welcome message
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
