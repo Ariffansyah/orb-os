@@ -22,9 +22,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
     firefox \
     firefox-langpacks \
-    chromium \
-    epiphany \
-    && rpm-ostree cleanup -m \
+    || true && \
+    rpm-ostree cleanup -m \
     && ostree container commit
 
 # ==========================================
@@ -101,7 +100,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 9: FASTFETCH SETUP
+# SECTION 3.2: FASTFETCH SETUP
 # ==========================================
 # Ensure fastfetch is properly installed and configured
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -345,7 +344,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "CURRENT_USER=Ariffansyah" >> /etc/os-release && \
     # Create version file
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-10 01:58:18" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-10 02:06:41" > /etc/orb-os/version && \
     # Update welcome message
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
