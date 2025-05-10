@@ -98,10 +98,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Install cloudflare-warp supplied from local file
-# Will be used later along with script
-COPY vendor/cloudflare-warp /usr/share/ublue-os/packages
-
 # Homebrew
 # For some reason some devices don't get homebrew installed on their machine when rebasing.
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -128,8 +124,10 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # Finalize
-COPY override /
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Create required directories
+    mkdir -p /usr/share/ublue-os/packages && \
+    mkdir -p /usr/share/ublue-os/just && \
     # Service management
     systemctl disable gdm || true && \
     systemctl disable sddm || true && \
@@ -140,9 +138,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl disable brew-update.timer || true && \
     systemctl --global enable podman.socket || true && \
     # Enabling just files
-    echo "import \"/usr/share/ublue-os/just/80-orb-os.just\"" >> /usr/share/ublue-os/justfile || true && \
-    echo "import \"/usr/share/ublue-os/just/81-orb-os-fix.just\"" >> /usr/share/ublue-os/justfile || true && \
-    echo "import \"/usr/share/ublue-os/just/84-orb-os-virt.just\"" >> /usr/share/ublue-os/justfile || true && \
+    echo "# Orb OS customizations" >> /usr/share/ublue-os/justfile || true && \
     # Configure ostree remote
     echo "Setting ostree remote to ${OSTREE_REMOTE}" && \
     mkdir -p /usr/etc/ostree/remotes.d && \
@@ -152,6 +148,8 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "tls-permissive=true" >> /usr/etc/ostree/remotes.d/orb-os.conf && \
     # Disabling copr for faster sync
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
+    mkdir -p /etc/flatpak/remotes.d && \
+    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
     # Finishing stuff
     /usr/libexec/containerbuild/image-info && \
     /usr/libexec/containerbuild/build-initramfs && \
