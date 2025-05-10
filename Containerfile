@@ -242,6 +242,22 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
+# Install standard Fedora kernel
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree cliwrap install-to-root / && \
+    echo "Will install standard Fedora kernel" && \
+    rpm-ostree install \
+    kernel \
+    kernel-core \
+    kernel-modules && \
+    rpm-ostree override replace \
+    --experimental \
+    bootc \
+    rpm-ostree \
+    rpm-ostree-libs && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
 # Setup firmware
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     mkdir -p /tmp/linux-firmware-neptune && \
@@ -283,29 +299,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Add ublue packages
+# fwupd and packages from staging repo
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=akmods,src=/rpms,dst=/tmp/akmods-rpms \
-    --mount=type=bind,from=akmods-extra,src=/rpms,dst=/tmp/akmods-extra-rpms \
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
-    rpm-ostree install \
-    /tmp/akmods-rpms/kmods/*kvmfr*.rpm \
-    /tmp/akmods-rpms/kmods/*xone*.rpm \
-    /tmp/akmods-rpms/kmods/*openrazer*.rpm \
-    /tmp/akmods-rpms/kmods/*v4l2loopback*.rpm \
-    /tmp/akmods-rpms/kmods/*wl*.rpm \
-    /tmp/akmods-rpms/kmods/*framework-laptop*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*gcadapter_oc*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*nct6687*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*zenergy*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*vhba*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*gpd-fan*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*ayaneo-platform*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*ayn-platform*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*bmi260*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*ryzen-smu*.rpm \
-    /tmp/akmods-extra-rpms/kmods/*evdi*.rpm \
-    || true && \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ublue-os-staging.repo && \
     rpm-ostree override replace \
     --experimental \
     --from repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
@@ -403,7 +399,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     vim \
     zsh \
     starship \
-    zsh \
     zsh-autosuggestions \
     ghostty \
     ptyxis \
