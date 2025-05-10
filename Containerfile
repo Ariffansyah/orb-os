@@ -155,7 +155,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Install COSMIC desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    cosmic-desktop && \
+    cosmic-desktop cosmic-greeter && \
     # Install gnome-software and gnome-disks
     rpm-ostree install \
     gnome-software \
@@ -239,6 +239,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl disable gdm || true && \
     systemctl disable sddm || true && \
     systemctl enable cosmic-greeter && \
+    systemctl set-default graphical.target && \
     systemctl enable brew-dir-fix.service && \
     systemctl enable brew-setup.service && \
     systemctl disable brew-upgrade.timer && \
