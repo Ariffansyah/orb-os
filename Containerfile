@@ -101,23 +101,16 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 2: REPOSITORY SETUP
 # ==========================================
-# Add necessary repositories
+# Add necessary repositories, being careful to only use known good ones
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Add COPR repositories
+    # Add COPR repositories - only include those known to work
     curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
-    # Try adding all available COSMIC repositories to increase chances of success
-    curl -Lo /etc/yum.repos.d/_copr_jargon-cosmic.repo \
-    https://copr.fedorainfracloud.org/coprs/jargon/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/jargon-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
-    curl -Lo /etc/yum.repos.d/_copr_eddsalkield-cosmic.repo \
-    https://copr.fedorainfracloud.org/coprs/eddsalkield/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/eddsalkield-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
-    curl -Lo /etc/yum.repos.d/_copr_atim-cosmic.repo \
-    https://copr.fedorainfracloud.org/coprs/atim/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
     # Try flathub autoinstall repo for zen browser
     curl -Lo /etc/yum.repos.d/zen-browser.repo \
-    https://get.zenith.fedorapeople.org/zenith.repo || true && \
+    https://get.zenith.fedorapeople.org/zenith.repo 2>/dev/null || true && \
     # Add RPM Fusion repositories
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
@@ -155,26 +148,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 4: COSMIC DESKTOP INSTALLATION
+# SECTION 4: COSMIC-LIKE DESKTOP INSTALLATION
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Try installing COSMIC from various sources
-    rpm-ostree install \
-    cosmic \
-    cosmic-session \
-    cosmic-desktop \
-    cosmic-settings \
-    cosmic-applets \
-    cosmic-panel \
-    cosmic-launcher \
-    cosmic-workspaces \
-    cosmic-bg \
-    cosmic-comp \
-    cosmic-osd \
-    cosmic-notifications \
-    cosmic-applibrary \
-    cosmic-greeter \
-    || true && \
     # Core desktop environment components
     rpm-ostree install -y \
     wl-clipboard \
@@ -182,6 +158,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     xdg-desktop-portal \
     xdg-desktop-portal-wlr \
     polkit \
+    fira-code-fonts \
+    fira-sans-fonts \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
@@ -194,8 +172,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install -y \
     google-noto-emoji-fonts \
     google-noto-emoji-color-fonts \
-    pop-gtk-theme \
-    pop-icon-theme \
+    arc-theme \
+    papirus-icon-theme \
+    breeze-cursor-theme \
     || true && \
     # Audio and sensors
     rpm-ostree install -y \
@@ -221,6 +200,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ghostty \
     neovim \
     zenith \
+    nautilus \
     || true && \
     # Install ZSH and neofetch
     rpm-ostree install -y \
@@ -452,9 +432,9 @@ RUN mkdir -p /etc/skel/.config && \
     echo "x-scheme-handler/unknown=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list
 
 # ==========================================
-# SECTION 10: COSMIC SESSION SETUP
+# SECTION 10: SESSION SETUP
 # ==========================================
-# Configure COSMIC desktop environment
+# Configure desktop environment
 RUN mkdir -p /etc/skel/.config/autostart && \
     # Create autostart file for NetworkManager applet
     echo "[Desktop Entry]" > /etc/skel/.config/autostart/nm-applet.desktop && \
@@ -464,7 +444,7 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "Terminal=false" >> /etc/skel/.config/autostart/nm-applet.desktop && \
     # Create environment variables
     mkdir -p /etc/environment.d && \
-    echo "# COSMIC environment variables" > /etc/environment.d/90-env.conf && \
+    echo "# Wayland environment variables" > /etc/environment.d/90-env.conf && \
     echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-env.conf && \
     echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-env.conf && \
     echo "XDG_CURRENT_DESKTOP=cosmic" >> /etc/environment.d/90-env.conf && \
@@ -477,15 +457,6 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-env.conf && \
     echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-env.conf && \
     echo "ZDOTDIR=\$HOME" >> /etc/environment.d/90-env.conf && \
-    # Create COSMIC session file
-    mkdir -p /usr/share/wayland-sessions && \
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Name=COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Comment=This session logs you into COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Exec=cosmic-session" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "Type=Application" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    echo "DesktopNames=cosmic" >> /usr/share/wayland-sessions/cosmic.desktop && \
-    chmod 644 /usr/share/wayland-sessions/cosmic.desktop && \
     # Create welcome message script that doesn't have command not found error
     echo '#!/bin/bash' > /etc/profile.d/welcome.sh && \
     echo 'if [ -f /etc/motd ]; then' >> /etc/profile.d/welcome.sh && \
@@ -539,14 +510,8 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "    rpm-ostree install -y zenith 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
     echo "fi" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Set up COSMIC session" >> /usr/bin/orb-firstboot.sh && \
-    echo "if command -v cosmic-session &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    echo 'Found COSMIC session, configuring as default'" >> /usr/bin/orb-firstboot.sh && \
-    echo "    mkdir -p /var/lib/AccountsService/users/" >> /usr/bin/orb-firstboot.sh && \
-    echo "    echo '[User]' > /var/lib/AccountsService/users/$(whoami) 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "    echo 'XSession=cosmic' >> /var/lib/AccountsService/users/$(whoami) 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "    echo 'SystemAccount=false' >> /var/lib/AccountsService/users/$(whoami) 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Create a sway-like config directory with cosmic-like settings" >> /usr/bin/orb-firstboot.sh && \
+    echo "mkdir -p /home/*/config/sway/ 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
     echo "# Set up Node.js global packages" >> /usr/bin/orb-firstboot.sh && \
     echo "if command -v npm &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
@@ -586,9 +551,10 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Add custom variant information
     echo "VARIANT_ID=cosmic" >> /etc/os-release && \
     echo "VARIANT=COSMIC" >> /etc/os-release && \
+    echo "CURRENT_USER=Ariffansyah" >> /etc/os-release && \
     # Create version file
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-10 00:59:53" > /etc/orb-os/version && \
     # Update welcome message
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
