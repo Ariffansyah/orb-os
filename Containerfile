@@ -250,11 +250,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     kernel \
     kernel-core \
     kernel-modules && \
-    rpm-ostree override replace \
-    --experimental \
-    bootc \
-    rpm-ostree \
-    rpm-ostree-libs && \
+    # Removed the rpm-ostree override replace command here
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -299,12 +295,10 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# fwupd and packages from staging repo
+# fwupd packages from staging repo
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ublue-os-staging.repo && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
+    rpm-ostree install \
     fwupd \
     fwupd-plugin-flashrom \
     fwupd-plugin-modem-manager \
@@ -313,9 +307,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Install Valve's patched Mesa, Pipewire, Bluez, and Xwayland#
+# Install Valve's patched Mesa, Pipewire, Bluez, and Xwayland
 # Install patched switcheroo control with proper discrete GPU support
-# Tempporary fix for GPU Encoding
+# Temporary fix for GPU Encoding
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     mesa-dri-drivers.i686 && \
@@ -331,9 +325,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cp /usr/lib/dri/libdril_dri.so /tmp/mesa-fix32/dri/ && \
     cp /usr/lib/dri/swrast_dri.so /tmp/mesa-fix32/dri/ && \
     cp /usr/lib/dri/virtio_gpu_dri.so /tmp/mesa-fix32/dri/ && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:kylegospo:bazzite-multilib \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo && \
+    rpm-ostree install \
     mesa-libxatracker \
     mesa-libglapi \
     mesa-dri-drivers \
@@ -354,8 +347,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     bluez-obexd \
     bluez-cups \
     bluez-libs \
-    xorg-x11-server-Xwayland \
-    || true && \
+    xorg-x11-server-Xwayland && \
     rsync -a /tmp/mesa-fix64/ /usr/lib64/ && \
     rsync -a /tmp/mesa-fix32/ /usr/lib/ && \
     rm -rf /tmp/mesa-fix64 && \
@@ -365,10 +357,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     libbluray \
     libbluray-utils && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo && \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:sentry:switcheroo-control_discrete \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo && \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo && \
+    rpm-ostree install \
     switcheroo-control && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -416,6 +409,7 @@ COPY vendor/cloudflare-warp /usr/share/ublue-os/packages
 
 # Install and configure Cosmic DE
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ryanabx-cosmic.repo && \
     rpm-ostree install \
     cosmic-desktop && \
     # Install gnome-software and gnome-disks
@@ -428,6 +422,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # We remove cosmic-store and replace it with gnome-software for better functionality
     rpm-ostree remove \
     cosmic-store || true && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ryanabx-cosmic.repo && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -511,6 +506,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/charm.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-rar.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ryanabx-cosmic.repo && \
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
     # Finishing stuff
