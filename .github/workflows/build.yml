@@ -185,12 +185,13 @@ jobs:
       - name: Apply Rechunk
         run: |
           echo "Applying rechunk to optimize image..."
-          sudo podman container run --privileged --rm \
+          # The correct syntax for rechunk
+          sudo podman run --privileged --rm \
           -v /var/lib/containers:/var/lib/containers \
           ghcr.io/hhd-dev/rechunk:v1.1.2 \
           ${{ env.IMAGE_NAME }}:latest \
           ${{ env.IMAGE_NAME }}:rechunked
-          
+    
           # Replace the original image with the rechunked one
           sudo podman rmi ${{ env.IMAGE_NAME }}:latest
           sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
