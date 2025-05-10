@@ -181,11 +181,28 @@ jobs:
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
           --tag ${{ env.IMAGE_NAME }}:latest .
 
+      # Apply rechunk to optimize the image
+      - name: Apply Rechunk
+        run: |
+          echo "Applying rechunk to optimize image..."
+          sudo podman container run --privileged --rm \
+          -v /var/lib/containers:/var/lib/containers \
+          ghcr.io/hhd-dev/rechunk:v1.1.2 \
+          ${{ env.IMAGE_NAME }}:latest \
+          ${{ env.IMAGE_NAME }}:rechunked
+          
+          # Replace the original image with the rechunked one
+          sudo podman rmi ${{ env.IMAGE_NAME }}:latest
+          sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
+          echo "Rechunk completed successfully!"
+
       # Deleting unused images after build
       - name: Remove auxiliary images
         # We are tight on space, need at least 2x for OSTree
         run: |
           sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
+          sudo podman image rm ${{ env.IMAGE_NAME }}:rechunked || true
+          sudo podman image rm ghcr.io/hhd-dev/rechunk:v1.1.2 || true
 
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
@@ -259,16 +276,14 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # Skip rechunk and push the original image
-      # This is a simpler approach that should work reliably
-      # This is the section that needs to be fixed
-      - name: Push Original Image
+      # Push the rechunked image
+      - name: Push Rechunked Image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          echo "Pushing original image with multiple tags"
+          echo "Pushing optimized rechunked image with multiple tags"
     
-          # Fix the registry path here - remove the duplicate username
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          # Use proper registry path with owner included
+          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
     
           # Tag and push latest
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
@@ -283,6 +298,12 @@ jobs:
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
+          
+          # Add fedora version tag
+          sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ env.FEDORA_VERSION }}
+          sudo podman push $REGISTRY_PATH:${{ env.FEDORA_VERSION }}
+          echo "Pushed $REGISTRY_PATH:${{ env.FEDORA_VERSION }}"
+
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
       # using Cosign and save the private key as a repository secret in Github for this workflow
@@ -295,7 +316,7 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           IMAGE_FULL="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
+          for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }} ${{ env.FEDORA_VERSION }}; do
             cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
           done
         env:
