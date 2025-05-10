@@ -3,7 +3,7 @@ FROM ghcr.io/ublue-os/base-main:42
 # Define build arguments
 ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
-ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-cosmic}"
+ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-gnome}"
 ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
 ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base-main}"
 ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
@@ -152,10 +152,13 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
-# Install COSMIC desktop environment and utilities
+# Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    cosmic-desktop cosmic-greeter && \
+    gnome-shell gnome-session gnome-terminal gnome-control-center \
+    gnome-tweaks gnome-extensions-app gnome-shell-extension-appindicator \
+    gnome-backgrounds gnome-themes-extra gnome-shell-extension-dash-to-dock \
+    gdm && \
     # Install gnome-software and gnome-disks
     rpm-ostree install \
     gnome-software \
@@ -163,9 +166,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gparted \
     gnome-keyring NetworkManager-tui \
     NetworkManager-openvpn && \
-    # We remove cosmic-store and replace it with gnome-software for better functionality
+    # Remove any COSMIC packages if they exist
     rpm-ostree remove \
-    cosmic-store || true && \
+    cosmic-desktop cosmic-greeter cosmic-store || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -236,9 +239,9 @@ COPY override /
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Service management
     systemctl enable lactd || true && \
-    systemctl disable gdm || true && \
+    systemctl enable gdm && \
     systemctl disable sddm || true && \
-    systemctl enable cosmic-greeter && \
+    systemctl disable cosmic-greeter || true && \
     systemctl set-default graphical.target && \
     systemctl enable brew-dir-fix.service && \
     systemctl enable brew-setup.service && \
