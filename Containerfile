@@ -109,6 +109,10 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     git vim zsh starship tmux \
     # Terminal emulators
     ghostty ptyxis \
+    # File manager
+    nautilus \
+    # PostgreSQL CLI tools
+    postgresql \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
