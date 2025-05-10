@@ -166,7 +166,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # We remove cosmic-store and replace it with gnome-software for better functionality
     rpm-ostree remove \
     cosmic-store || true && \
-    /usr/libexec/contairbuild/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
