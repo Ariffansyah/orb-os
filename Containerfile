@@ -1,6 +1,6 @@
 FROM ghcr.io/ublue-os/base-main:42
 
-# Define build arguments
+# Define build arguments 
 ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
 ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-cosmic}"
@@ -9,228 +9,94 @@ ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora-kinoite}"
 ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
+ARG STELLARITE_VERSION="0.1.0"
+ARG STELLARITE_ARCH="x86_64"
 
-# Copy system files
 COPY system /
 
 # ==========================================
-# SECTION 1: SYSTEM PACKAGE OVERRIDES
+# SECTION 1: Remove and Modify Base Packages
 # ==========================================
-# Override system packages with updates for better compatibility
+
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Base system overrides
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=fedora \
-    libusb1 \
-    || true && \
-    # Graphics and display overrides
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    vulkan-loader \
-    libdrm \
-    libdecor \
-    atk \
-    at-spi2-atk \
-    libX11 libX11-common libX11-xcb \
-    libinput \
-    || true && \
-    # Media and codec overrides
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    alsa-lib \
-    gstreamer1 gstreamer1-plugins-base \
-    libaom \
-    libopenmpt \
-    libv4l \
-    || true && \
-    # System library overrides
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    gnutls \
-    glib2 \
-    nspr \
-    nss nss-softokn nss-softokn-freebl nss-sysinit nss-util \
-    libtirpc \
-    libuuid \
-    libblkid \
-    libmount \
-    cups-libs \
-    llvm-libs \
-    zlib-ng-compat \
-    fontconfig \
-    pciutils-libs \
-    || true && \
-    # Compiler and runtime libraries
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    cpp libatomic libgcc libgfortran libgomp libobjc libstdc++ \
-    elfutils-libelf elfutils-libs \
-    || true && \
-    # Core system overrides
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=updates \
-    glibc glibc-common glibc-all-langpacks glibc-gconv-extra \
-    libxcrypt \
-    SDL2 \
-    || true && \
-    # Remove unnecessary packages including browsers and GNOME components
     rpm-ostree override remove \
-    glibc32 \
     firefox \
+    firefox-langpacks \
     chromium \
     epiphany \
-    gnome-shell \
-    gnome-session \
-    gnome-terminal \
-    gnome-control-center \
-    gnome-settings-daemon \
-    gnome-software \
-    gnome-keyring \
-    gnome-backgrounds \
-    gnome-menus \
-    || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
+    && rpm-ostree cleanup -m \
+    && ostree container commit
 
 # ==========================================
-# SECTION 2: REPOSITORY SETUP
+# SECTION 2: Add Repositories
 # ==========================================
-# Add necessary repositories, being careful to only use known good ones
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Add COPR repositories - only include those known to work
-    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
-    https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
-    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
-    https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
-    # Try flathub autoinstall repo for zen browser
-    curl -Lo /etc/yum.repos.d/zen-browser.repo \
-    https://get.zenith.fedorapeople.org/zenith.repo 2>/dev/null || true && \
-    # Add RPM Fusion repositories
-    dnf install -y \
-    https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
-    https://download1.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm && \
-    # Add NodeJS repository
-    curl -fsSL https://rpm.nodesource.com/setup_20.x | bash - || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
+
+RUN curl -s https://copr.fedorainfracloud.org/coprs/agriffis/neovim-nightly/repo/fedora-$(rpm -E %fedora)/agriffis-neovim-nightly-fedora-$(rpm -E %fedora).repo > /etc/yum.repos.d/agriffis-neovim-nightly-fedora.repo \
+    && curl -s https://download.opensuse.org/repositories/home:/dkalev:/hyprland/Fedora_$(rpm -E %fedora)/home:dkalev:hyprland.repo > /etc/yum.repos.d/hyprland.repo \
+    && curl -s https://get.zenith.fedorapeople.org/zenith.repo > /etc/yum.repos.d/zen-browser.repo \
+    && ostree container commit
 
 # ==========================================
-# SECTION 3: DISPLAY SERVER AND LOGIN MANAGER
+# SECTION 3: Install Base RPM Packages
 # ==========================================
-# Install display server and login manager
+
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install essential display packages
+    rpm-ostree install \
+    alacritty \
+    appstream-data \
+    btop \
+    corectrl \
+    curl \
+    exa \
+    fastfetch \
+    ghostty \
+    git \
+    glibc-langpack-en \
+    kmod-winesync \
+    make \
+    ncurses \
+    neofetch \
+    neovim \
+    NetworkManager-tui \
+    NetworkManager-wifi \
+    nodejs \
+    npm \
+    p7zip \
+    p7zip-plugins \
+    python3-pip \
+    qemu \
+    ripgrep \
+    rsync \
+    starship \
+    stow \
+    tar \
+    tldr \
+    unrar \
+    unzip \
+    vim \
+    wget \
+    wireplumber \
+    xdg-desktop-portal \
+    xdg-desktop-portal-gtk \
+    xdg-desktop-portal-wlr \
+    zenith \
+    zsh \
+    && ostree container commit
+
+# ==========================================
+# SECTION 3.1: Additional Components
+# ==========================================
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install -y \
-    wayland \
-    wayland-protocols \
-    xorg-x11-server-Xwayland \
-    libinput \
-    libglvnd \
-    egl-wayland \
-    mesa-dri-drivers \
-    mesa-vulkan-drivers \
-    mesa-libGL \
-    mesa-libEGL \
-    mesa-libGLU \
-    wlroots \
     gdm \
     lightdm \
-    || true && \
-    # Set default target to graphical
-    systemctl set-default graphical.target && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 4: COSMIC-LIKE DESKTOP INSTALLATION
-# ==========================================
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Core desktop environment components
-    rpm-ostree install -y \
-    wl-clipboard \
-    xdg-utils \
-    xdg-desktop-portal \
-    xdg-desktop-portal-wlr \
-    polkit \
-    fira-code-fonts \
-    fira-sans-fonts \
-    || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 5: ADDITIONAL DESKTOP COMPONENTS
-# ==========================================
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Fonts and themes
-    rpm-ostree install -y \
-    google-noto-emoji-fonts \
-    google-noto-emoji-color-fonts \
-    arc-theme \
-    papirus-icon-theme \
-    breeze-cursor-theme \
-    || true && \
-    # Audio and sensors
-    rpm-ostree install -y \
-    pipewire \
-    pipewire-alsa \
-    pipewire-pulseaudio \
-    wireplumber \
-    alsa-ucm \
-    alsa-firmware \
-    alsa-sof-firmware \
-    lm_sensors \
-    || true && \
-    # Bluetooth and Network
-    rpm-ostree install -y \
     bluez \
     bluez-tools \
     NetworkManager-wifi \
     network-manager-applet \
     || true && \
-    # Core applications
-    rpm-ostree install -y \
-    alacritty \
-    ghostty \
-    neovim \
-    zenith \
-    nautilus \
-    || true && \
-    # Install ZSH and neofetch
-    rpm-ostree install -y \
-    zsh \
-    zsh-autosuggestions \
-    zsh-syntax-highlighting \
-    neofetch \
-    || true && \
-    /usr/libexec/build/clean.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 6: PROGRAMMING LANGUAGES & TOOLS
-# ==========================================
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install development tools and programming languages
-    rpm-ostree install -y \
-    gcc \
-    gcc-c++ \
-    make \
-    cmake \
-    git \
-    vim \
-    nodejs \
-    npm \
-    golang \
-    python3 \
-    python3-pip \
-    python3-devel \
-    || true && \
+    systemctl set-default graphical.target && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
 
@@ -245,9 +111,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 7: ZSH CONFIGURATION
+# SECTION 4: Configure ZSH
 # ==========================================
-# Set up ZSH configuration
+
 RUN mkdir -p /etc/skel/.config && \
     # Create ZSH configuration
     echo "# ZSH Configuration" > /etc/skel/.zshrc && \
@@ -270,29 +136,30 @@ RUN mkdir -p /etc/skel/.config && \
     echo "# Enable colors" >> /etc/skel/.zshrc && \
     echo "autoload -U colors && colors" >> /etc/skel/.zshrc && \
     echo "" >> /etc/skel/.zshrc && \
-    echo "# Load plugins if available" >> /etc/skel/.zshrc && \
-    echo "if [ -f /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh ]; then" >> /etc/skel/.zshrc && \
-    echo "    source /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh" >> /etc/skel/.zshrc && \
+    echo "# Use starship prompt if available" >> /etc/skel/.zshrc && \
+    echo "if command -v starship &> /dev/null; then" >> /etc/skel/.zshrc && \
+    echo "    eval \"\$(starship init zsh)\"" >> /etc/skel/.zshrc && \
+    echo "else" >> /etc/skel/.zshrc && \
+    echo "    PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '" >> /etc/skel/.zshrc && \
     echo "fi" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "if [ -f /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh ]; then" >> /etc/skel/.zshrc && \
-    echo "    source /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh" >> /etc/skel/.zshrc && \
-    echo "fi" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Custom prompt" >> /etc/skel/.zshrc && \
-    echo "PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '" >> /etc/skel/.zshrc && \
     echo "" >> /etc/skel/.zshrc && \
     echo "# Aliases" >> /etc/skel/.zshrc && \
-    echo "alias ls='ls --color=auto'" >> /etc/skel/.zshrc && \
-    echo "alias ll='ls -la'" >> /etc/skel/.zshrc && \
+    echo "alias ls='exa --icons'" >> /etc/skel/.zshrc && \
+    echo "alias ll='exa --long --icons --header'" >> /etc/skel/.zshrc && \
+    echo "alias la='exa --long --all --icons --header'" >> /etc/skel/.zshrc && \
+    echo "alias lt='exa --tree --icons'" >> /etc/skel/.zshrc && \
     echo "alias grep='grep --color=auto'" >> /etc/skel/.zshrc && \
+    echo "alias vim='nvim'" >> /etc/skel/.zshrc && \
+    echo "alias v='nvim'" >> /etc/skel/.zshrc && \
     echo "" >> /etc/skel/.zshrc && \
-    echo "# Run fastfetch if it exists" >> /etc/skel/.zshrc && \
-    echo "if command -v fastfetch &> /dev/null; then" >> /etc/skel/.zshrc && \
-    echo "    fastfetch" >> /etc/skel/.zshrc && \
-    echo "elif command -v neofetch &> /dev/null; then" >> /etc/skel/.zshrc && \
-    echo "    neofetch" >> /etc/skel/.zshrc && \
-    echo "fi" >> /etc/skel/.zshrc && \
+    echo "# Run fastfetch on terminal start" >> /etc/skel/.zshrc && \
+    echo "fastfetch" >> /etc/skel/.zshrc && \
+    echo "" >> /etc/skel/.zshrc && \
+    echo "# Welcome message" >> /etc/skel/.zshrc && \
+    echo "cat << 'EOF'" >> /etc/skel/.zshrc && \
+    echo "Welcome to Orb OS: Terminal Edition" >> /etc/skel/.zshrc && \
+    echo "Type 'starship init' to initialize the starship prompt." >> /etc/skel/.zshrc && \
+    echo "EOF" >> /etc/skel/.zshrc && \
     # Create .zshenv file
     echo "# ZSH Environment" > /etc/skel/.zshenv && \
     echo "" >> /etc/skel/.zshenv && \
@@ -301,103 +168,10 @@ RUN mkdir -p /etc/skel/.config && \
     echo "" >> /etc/skel/.zshenv
 
 # ==========================================
-# SECTION 8: USER CONFIGURATION
+# SECTION 5: Configure Bash (Fallback)
 # ==========================================
-# Set up user configuration files
-RUN mkdir -p /etc/skel/.config && \
-    # Create Ghostty config
-    mkdir -p /etc/skel/.config/ghostty && \
-    echo "# Ghostty Terminal Configuration" > /etc/skel/.config/ghostty/config && \
-    echo "theme = catppuccin-mocha" >> /etc/skel/.config/ghostty/config && \
-    echo "font-family = JetBrainsMono Nerd Font" >> /etc/skel/.config/ghostty/config && \
-    echo "font-size = 12" >> /etc/skel/.config/ghostty/config && \
-    echo "cursor-style = beam" >> /etc/skel/.config/ghostty/config && \
-    echo "background-opacity = 0.95" >> /etc/skel/.config/ghostty/config && \
-    echo "window-padding-x = 10" >> /etc/skel/.config/ghostty/config && \
-    echo "window-padding-y = 10" >> /etc/skel/.config/ghostty/config && \
-    echo "shell = /bin/zsh" >> /etc/skel/.config/ghostty/config && \
-    # Create Alacritty config
-    mkdir -p /etc/skel/.config/alacritty && \
-    echo "# Alacritty Terminal Configuration" > /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "font:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  normal:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "    family: JetBrainsMono Nerd Font" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  size: 12" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "window:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  opacity: 0.95" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  padding:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "    x: 10" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "    y: 10" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "shell:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  program: /bin/zsh" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    # Create Neofetch config
-    mkdir -p /etc/skel/.config/neofetch && \
-    echo "# Neofetch Configuration" > /etc/skel/.config/neofetch/config.conf && \
-    echo "print_info() {" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info title" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info underline" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"OS\" distro" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Host\" model" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Kernel\" kernel" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Uptime\" uptime" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Packages\" packages" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Shell\" shell" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"DE\" de" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"WM\" wm" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Terminal\" term" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"CPU\" cpu" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Memory\" memory" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "    info \"Disk\" disk" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "}" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "# Set small logo" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "ascii_distro=\"auto\"" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "ascii_colors=(distro)" >> /etc/skel/.config/neofetch/config.conf && \
-    echo "ascii_bold=\"on\"" >> /etc/skel/.config/neofetch/config.conf && \
-    # Create Fastfetch config directory and file
-    mkdir -p /etc/skel/.config/fastfetch && \
-    echo "# Fastfetch Configuration" > /etc/skel/.config/fastfetch/config.jsonc && \
-    echo "{" >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    "logo": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "type": "small",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "padding": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '            "left": 2,' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '            "right": 2' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        }' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    },' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    "display": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "separator": "  ",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "keyWidth": 15' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    },' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    "modules": [' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "title",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "os",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "kernel",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "uptime",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "packages",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "shell",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "de",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "wm",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "terminal",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "cpu",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "memory",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "disk"' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    ]' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '}' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    # Create Neovim config
-    mkdir -p /etc/skel/.config/nvim && \
-    echo "-- Neovim Configuration" > /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.number = true" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.relativenumber = true" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.shiftwidth = 2" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.tabstop = 2" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.expandtab = true" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.cursorline = true" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.termguicolors = true" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.mouse = 'a'" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.opt.clipboard = 'unnamedplus'" >> /etc/skel/.config/nvim/init.lua && \
-    echo "vim.g.mapleader = ' '" >> /etc/skel/.config/nvim/init.lua && \
-    # Create bash profile for fallback
-    echo "# .bash_profile" > /etc/skel/.bash_profile && \
+
+RUN echo "# .bash_profile" > /etc/skel/.bash_profile && \
     echo "if [ -f ~/.bashrc ]; then" >> /etc/skel/.bash_profile && \
     echo "    . ~/.bashrc" >> /etc/skel/.bash_profile && \
     echo "fi" >> /etc/skel/.bash_profile && \
@@ -410,20 +184,30 @@ RUN mkdir -p /etc/skel/.config && \
     echo "fi" >> /etc/skel/.bashrc && \
     echo "" >> /etc/skel/.bashrc && \
     echo "# User specific aliases and functions" >> /etc/skel/.bashrc && \
-    echo "alias ls='ls --color=auto'" >> /etc/skel/.bashrc && \
-    echo "alias ll='ls -la'" >> /etc/skel/.bashrc && \
+    echo "if command -v exa &> /dev/null; then" >> /etc/skel/.bashrc && \
+    echo "    alias ls='exa --icons'" >> /etc/skel/.bashrc && \
+    echo "    alias ll='exa --long --icons --header'" >> /etc/skel/.bashrc && \
+    echo "    alias la='exa --long --all --icons --header'" >> /etc/skel/.bashrc && \
+    echo "    alias lt='exa --tree --icons'" >> /etc/skel/.bashrc && \
+    echo "else" >> /etc/skel/.bashrc && \
+    echo "    alias ls='ls --color=auto'" >> /etc/skel/.bashrc && \
+    echo "    alias ll='ls -la'" >> /etc/skel/.bashrc && \
+    echo "fi" >> /etc/skel/.bashrc && \
     echo "alias grep='grep --color=auto'" >> /etc/skel/.bashrc && \
+    echo "alias vim='nvim'" >> /etc/skel/.bashrc && \
+    echo "alias v='nvim'" >> /etc/skel/.bashrc && \
     echo "" >> /etc/skel/.bashrc && \
     echo "# Set prompt" >> /etc/skel/.bashrc && \
-    echo "PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> /etc/skel/.bashrc && \
-    echo "" >> /etc/skel/.bashrc && \
-    echo "# Run fastfetch if available" >> /etc/skel/.bashrc && \
-    echo "if command -v fastfetch &> /dev/null; then" >> /etc/skel/.bashrc && \
-    echo "    fastfetch" >> /etc/skel/.bashrc && \
-    echo "elif command -v neofetch &> /dev/null; then" >> /etc/skel/.bashrc && \
-    echo "    neofetch" >> /etc/skel/.bashrc && \
+    echo "if command -v starship &> /dev/null; then" >> /etc/skel/.bashrc && \
+    echo "    eval \"\$(starship init bash)\"" >> /etc/skel/.bashrc && \
+    echo "else" >> /etc/skel/.bashrc && \
+    echo "    PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> /etc/skel/.bashrc && \
     echo "fi" >> /etc/skel/.bashrc && \
+    echo "" >> /etc/skel/.bashrc && \
+    echo "# Run fastfetch on terminal start" >> /etc/skel/.bashrc && \
+    echo "fastfetch" >> /etc/skel/.bashrc && \
     # Set Zen Browser as default browser
+    mkdir -p /etc/skel/.config && \
     echo "[Default Applications]" > /etc/skel/.config/mimeapps.list && \
     echo "text/html=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
     echo "x-scheme-handler/http=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
@@ -432,42 +216,9 @@ RUN mkdir -p /etc/skel/.config && \
     echo "x-scheme-handler/unknown=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list
 
 # ==========================================
-# SECTION 10: SESSION SETUP
+# SECTION 6: FIRST-BOOT SETUP
 # ==========================================
-# Configure desktop environment
-RUN mkdir -p /etc/skel/.config/autostart && \
-    # Create autostart file for NetworkManager applet
-    echo "[Desktop Entry]" > /etc/skel/.config/autostart/nm-applet.desktop && \
-    echo "Type=Application" >> /etc/skel/.config/autostart/nm-applet.desktop && \
-    echo "Name=Network Manager Applet" >> /etc/skel/.config/autostart/nm-applet.desktop && \
-    echo "Exec=nm-applet --indicator" >> /etc/skel/.config/autostart/nm-applet.desktop && \
-    echo "Terminal=false" >> /etc/skel/.config/autostart/nm-applet.desktop && \
-    # Create environment variables
-    mkdir -p /etc/environment.d && \
-    echo "# Wayland environment variables" > /etc/environment.d/90-env.conf && \
-    echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-env.conf && \
-    echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-env.conf && \
-    echo "XDG_CURRENT_DESKTOP=cosmic" >> /etc/environment.d/90-env.conf && \
-    echo "XDG_SESSION_DESKTOP=cosmic" >> /etc/environment.d/90-env.conf && \
-    echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-env.conf && \
-    echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-env.conf && \
-    echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-env.conf && \
-    echo "QT_AUTO_SCREEN_SCALE_FACTOR=1" >> /etc/environment.d/90-env.conf && \
-    echo "SDL_VIDEODRIVER=wayland" >> /etc/environment.d/90-env.conf && \
-    echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-env.conf && \
-    echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-env.conf && \
-    echo "ZDOTDIR=\$HOME" >> /etc/environment.d/90-env.conf && \
-    # Create welcome message script that doesn't have command not found error
-    echo '#!/bin/bash' > /etc/profile.d/welcome.sh && \
-    echo 'if [ -f /etc/motd ]; then' >> /etc/profile.d/welcome.sh && \
-    echo '    cat /etc/motd' >> /etc/profile.d/welcome.sh && \
-    echo 'fi' >> /etc/profile.d/welcome.sh && \
-    chmod +x /etc/profile.d/welcome.sh
 
-# ==========================================
-# SECTION 11: FIRST-BOOT SETUP
-# ==========================================
-# Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
     echo "[Unit]" > /usr/lib/systemd/system/orb-firstboot.service && \
     echo "Description=First Boot Setup for Orb OS" >> /usr/lib/systemd/system/orb-firstboot.service && \
@@ -495,39 +246,9 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "# Set zsh as default shell for future users" >> /usr/bin/orb-firstboot.sh && \
     echo "sed -i 's|^SHELL=.*|SHELL=/bin/zsh|' /etc/default/useradd" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Configure neofetch as fallback for fastfetch" >> /usr/bin/orb-firstboot.sh && \
-    echo "if ! command -v fastfetch &> /dev/null && command -v neofetch &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    ln -sf /usr/bin/neofetch /usr/local/bin/fastfetch 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
     echo "# Set Zen Browser as default browser" >> /usr/bin/orb-firstboot.sh && \
     echo "if command -v zenith &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
     echo "    xdg-settings set default-web-browser org.mozilla.zenith.desktop 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Try to install Zen Browser if not installed" >> /usr/bin/orb-firstboot.sh && \
-    echo "if ! command -v zenith &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    rpm-ostree install -y zenith 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Create a sway-like config directory with cosmic-like settings" >> /usr/bin/orb-firstboot.sh && \
-    echo "mkdir -p /home/*/config/sway/ 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Set up Node.js global packages" >> /usr/bin/orb-firstboot.sh && \
-    echo "if command -v npm &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    npm install -g yarn typescript ts-node" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Set up Python global packages" >> /usr/bin/orb-firstboot.sh && \
-    echo "if command -v pip3 &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    pip3 install --upgrade pip" >> /usr/bin/orb-firstboot.sh && \
-    echo "    pip3 install virtualenv black flake8 mypy pytest" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Create a script to check for NVIDIA and install drivers if needed" >> /usr/bin/orb-firstboot.sh && \
-    echo "if lspci -k | grep -A 2 -E \"(VGA|3D)\" | grep -iq nvidia; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    echo \"NVIDIA GPU detected, installing drivers...\"" >> /usr/bin/orb-firstboot.sh && \
-    echo "    rpm-ostree install -y akmod-nvidia xorg-x11-drv-nvidia-cuda" >> /usr/bin/orb-firstboot.sh && \
     echo "fi" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
     echo "# Disable this service after first run" >> /usr/bin/orb-firstboot.sh && \
@@ -535,11 +256,81 @@ RUN mkdir -p /usr/lib/systemd/system && \
     chmod +x /usr/bin/orb-firstboot.sh && \
     systemctl enable orb-firstboot.service
 
-# Copy override files and configure the system
-COPY override /
+# ==========================================
+# SECTION 7: Configure Terminal Apps
+# ==========================================
+
+# Configure Alacritty
+RUN mkdir -p /etc/skel/.config/alacritty && \
+    echo "# Alacritty Terminal Configuration" > /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "font:" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "  normal:" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "    family: JetBrainsMono Nerd Font" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "  size: 12" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "window:" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "  opacity: 0.95" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "  padding:" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "    x: 10" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "    y: 10" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "shell:" >> /etc/skel/.config/alacritty/alacritty.yml && \
+    echo "  program: /bin/zsh" >> /etc/skel/.config/alacritty/alacritty.yml
+
+# Configure Ghostty
+RUN mkdir -p /etc/skel/.config/ghostty && \
+    echo "# Ghostty Terminal Configuration" > /etc/skel/.config/ghostty/config && \
+    echo "theme = catppuccin-mocha" >> /etc/skel/.config/ghostty/config && \
+    echo "font-family = JetBrainsMono Nerd Font" >> /etc/skel/.config/ghostty/config && \
+    echo "font-size = 12" >> /etc/skel/.config/ghostty/config && \
+    echo "cursor-style = beam" >> /etc/skel/.config/ghostty/config && \
+    echo "background-opacity = 0.95" >> /etc/skel/.config/ghostty/config && \
+    echo "window-padding-x = 10" >> /etc/skel/.config/ghostty/config && \
+    echo "window-padding-y = 10" >> /etc/skel/.config/ghostty/config && \
+    echo "shell = /bin/zsh" >> /etc/skel/.config/ghostty/config
+
+# Configure Starship prompt
+RUN mkdir -p /etc/skel/.config && \
+    echo '# Starship Configuration' > /etc/skel/.config/starship.toml && \
+    echo '[character]' >> /etc/skel/.config/starship.toml && \
+    echo 'success_symbol = "[➜](bold green)"' >> /etc/skel/.config/starship.toml && \
+    echo 'error_symbol = "[✗](bold red)"' >> /etc/skel/.config/starship.toml
 
 # ==========================================
-# SECTION 12: OS BRANDING
+# SECTION 8: FASTFETCH SETUP
+# ==========================================
+# Ensure fastfetch is properly installed and configured
+RUN mkdir -p /etc/skel/.config/fastfetch && \
+    echo "# Fastfetch Configuration" > /etc/skel/.config/fastfetch/config.jsonc && \
+    echo "{" >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '    "logo": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "type": "small",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "padding": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '            "left": 2,' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '            "right": 2' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        }' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '    },' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '    "display": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "separator": "  ",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "keyWidth": 15' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '    },' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '    "modules": [' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "title",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "os",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "kernel",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "uptime",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "packages",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "shell",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "terminal",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "cpu",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "memory",' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '        "disk"' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '    ]' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    echo '}' >> /etc/skel/.config/fastfetch/config.jsonc && \
+    # Create system config
+    mkdir -p /etc/fastfetch && \
+    cp /etc/skel/.config/fastfetch/config.jsonc /etc/fastfetch/
+
+# ==========================================
+# SECTION 9: OS BRANDING
 # ==========================================
 # Update OS branding
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
@@ -554,7 +345,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "CURRENT_USER=Ariffansyah" >> /etc/os-release && \
     # Create version file
     mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-10 00:59:53" > /etc/orb-os/version && \
+    echo "Orb OS COSMIC - 2025-05-10 01:58:18" > /etc/orb-os/version && \
     # Update welcome message
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
