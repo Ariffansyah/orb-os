@@ -79,10 +79,21 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     libxcrypt \
     SDL2 \
     || true && \
-    # Remove unnecessary packages
+    # Remove unnecessary packages including browsers and GNOME components
     rpm-ostree override remove \
     glibc32 \
     firefox \
+    chromium \
+    epiphany \
+    gnome-shell \
+    gnome-session \
+    gnome-terminal \
+    gnome-control-center \
+    gnome-settings-daemon \
+    gnome-software \
+    gnome-keyring \
+    gnome-backgrounds \
+    gnome-menus \
     || true && \
     /usr/libexec/build/clean.sh && \
     ostree container commit
@@ -97,6 +108,16 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
+    # Try adding all available COSMIC repositories to increase chances of success
+    curl -Lo /etc/yum.repos.d/_copr_jargon-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/jargon/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/jargon-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
+    curl -Lo /etc/yum.repos.d/_copr_eddsalkield-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/eddsalkield/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/eddsalkield-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/atim/cosmic/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-cosmic-fedora-"${FEDORA_MAJOR_VERSION}".repo || true && \
+    # Try flathub autoinstall repo for zen browser
+    curl -Lo /etc/yum.repos.d/zen-browser.repo \
+    https://get.zenith.fedorapeople.org/zenith.repo || true && \
     # Add RPM Fusion repositories
     dnf install -y \
     https://download1.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm \
@@ -107,9 +128,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 3: DISPLAY SERVER AND DESKTOP
+# SECTION 3: DISPLAY SERVER AND LOGIN MANAGER
 # ==========================================
-# Install display server and desktop environment packages
+# Install display server and login manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install essential display packages
     rpm-ostree install -y \
@@ -125,14 +146,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     mesa-libEGL \
     mesa-libGLU \
     wlroots \
-    || true && \
-    # Install GNOME display manager and core
-    rpm-ostree install -y \
-    gnome-shell \
-    gnome-session \
-    gnome-terminal \
-    gnome-control-center \
     gdm \
+    lightdm \
     || true && \
     # Set default target to graphical
     systemctl set-default graphical.target && \
@@ -140,24 +155,47 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 4: ADDITIONAL DESKTOP COMPONENTS
+# SECTION 4: COSMIC DESKTOP INSTALLATION
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Try installing COSMIC from various sources
+    rpm-ostree install \
+    cosmic \
+    cosmic-session \
+    cosmic-desktop \
+    cosmic-settings \
+    cosmic-applets \
+    cosmic-panel \
+    cosmic-launcher \
+    cosmic-workspaces \
+    cosmic-bg \
+    cosmic-comp \
+    cosmic-osd \
+    cosmic-notifications \
+    cosmic-applibrary \
+    cosmic-greeter \
+    || true && \
     # Core desktop environment components
     rpm-ostree install -y \
     wl-clipboard \
     xdg-utils \
     xdg-desktop-portal \
-    xdg-desktop-portal-gtk \
-    xdg-desktop-portal-gnome \
-    polkit-gnome \
+    xdg-desktop-portal-wlr \
+    polkit \
     || true && \
+    /usr/libexec/build/clean.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 5: ADDITIONAL DESKTOP COMPONENTS
+# ==========================================
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Fonts and themes
     rpm-ostree install -y \
     google-noto-emoji-fonts \
     google-noto-emoji-color-fonts \
-    arc-theme \
-    papirus-icon-theme \
+    pop-gtk-theme \
+    pop-icon-theme \
     || true && \
     # Audio and sensors
     rpm-ostree install -y \
@@ -179,12 +217,10 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     || true && \
     # Core applications
     rpm-ostree install -y \
-    chromium \
     alacritty \
-    nautilus \
-    gnome-tweaks \
     ghostty \
     neovim \
+    zenith \
     || true && \
     # Install ZSH and neofetch
     rpm-ostree install -y \
@@ -197,7 +233,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 5: PROGRAMMING LANGUAGES & TOOLS
+# SECTION 6: PROGRAMMING LANGUAGES & TOOLS
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Install development tools and programming languages
@@ -229,7 +265,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 6: ZSH CONFIGURATION
+# SECTION 7: ZSH CONFIGURATION
 # ==========================================
 # Set up ZSH configuration
 RUN mkdir -p /etc/skel/.config && \
@@ -285,7 +321,7 @@ RUN mkdir -p /etc/skel/.config && \
     echo "" >> /etc/skel/.zshenv
 
 # ==========================================
-# SECTION 7: USER CONFIGURATION
+# SECTION 8: USER CONFIGURATION
 # ==========================================
 # Set up user configuration files
 RUN mkdir -p /etc/skel/.config && \
@@ -407,16 +443,18 @@ RUN mkdir -p /etc/skel/.config && \
     echo "elif command -v neofetch &> /dev/null; then" >> /etc/skel/.bashrc && \
     echo "    neofetch" >> /etc/skel/.bashrc && \
     echo "fi" >> /etc/skel/.bashrc && \
-    # Set Chromium as default browser
+    # Set Zen Browser as default browser
     echo "[Default Applications]" > /etc/skel/.config/mimeapps.list && \
-    echo "text/html=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/http=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/https=chromium-browser.desktop" >> /etc/skel/.config/mimeapps.list
+    echo "text/html=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/http=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/https=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/about=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
+    echo "x-scheme-handler/unknown=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list
 
 # ==========================================
-# SECTION 8: DESKTOP SESSION SETUP
+# SECTION 10: COSMIC SESSION SETUP
 # ==========================================
-# Configure desktop environment settings
+# Configure COSMIC desktop environment
 RUN mkdir -p /etc/skel/.config/autostart && \
     # Create autostart file for NetworkManager applet
     echo "[Desktop Entry]" > /etc/skel/.config/autostart/nm-applet.desktop && \
@@ -426,11 +464,11 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "Terminal=false" >> /etc/skel/.config/autostart/nm-applet.desktop && \
     # Create environment variables
     mkdir -p /etc/environment.d && \
-    echo "# Wayland environment variables" > /etc/environment.d/90-env.conf && \
+    echo "# COSMIC environment variables" > /etc/environment.d/90-env.conf && \
     echo "MOZ_ENABLE_WAYLAND=1" >> /etc/environment.d/90-env.conf && \
     echo "XDG_SESSION_TYPE=wayland" >> /etc/environment.d/90-env.conf && \
-    echo "XDG_CURRENT_DESKTOP=GNOME" >> /etc/environment.d/90-env.conf && \
-    echo "XDG_SESSION_DESKTOP=gnome" >> /etc/environment.d/90-env.conf && \
+    echo "XDG_CURRENT_DESKTOP=cosmic" >> /etc/environment.d/90-env.conf && \
+    echo "XDG_SESSION_DESKTOP=cosmic" >> /etc/environment.d/90-env.conf && \
     echo "QT_QPA_PLATFORMTHEME=qt5ct" >> /etc/environment.d/90-env.conf && \
     echo "QT_QPA_PLATFORM=wayland" >> /etc/environment.d/90-env.conf && \
     echo "QT_WAYLAND_DISABLE_WINDOWDECORATION=1" >> /etc/environment.d/90-env.conf && \
@@ -439,25 +477,15 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     echo "CLUTTER_BACKEND=wayland" >> /etc/environment.d/90-env.conf && \
     echo "_JAVA_AWT_WM_NONREPARENTING=1" >> /etc/environment.d/90-env.conf && \
     echo "ZDOTDIR=\$HOME" >> /etc/environment.d/90-env.conf && \
-    # Create session files
+    # Create COSMIC session file
     mkdir -p /usr/share/wayland-sessions && \
-    mkdir -p /usr/share/xsessions && \
-    # Create GNOME Wayland session file
-    echo "[Desktop Entry]" > /usr/share/wayland-sessions/gnome.desktop && \
-    echo "Name=GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
-    echo "Comment=This session logs you into GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
-    echo "Exec=gnome-session" >> /usr/share/wayland-sessions/gnome.desktop && \
-    echo "Type=Application" >> /usr/share/wayland-sessions/gnome.desktop && \
-    echo "DesktopNames=GNOME" >> /usr/share/wayland-sessions/gnome.desktop && \
-    chmod 644 /usr/share/wayland-sessions/gnome.desktop && \
-    # Create X11 session file
-    echo "[Desktop Entry]" > /usr/share/xsessions/gnome-xorg.desktop && \
-    echo "Name=GNOME on Xorg" >> /usr/share/xsessions/gnome-xorg.desktop && \
-    echo "Comment=This session logs you into GNOME" >> /usr/share/xsessions/gnome-xorg.desktop && \
-    echo "Exec=gnome-session" >> /usr/share/xsessions/gnome-xorg.desktop && \
-    echo "Type=Application" >> /usr/share/xsessions/gnome-xorg.desktop && \
-    echo "DesktopNames=GNOME" >> /usr/share/xsessions/gnome-xorg.desktop && \
-    chmod 644 /usr/share/xsessions/gnome-xorg.desktop && \
+    echo "[Desktop Entry]" > /usr/share/wayland-sessions/cosmic.desktop && \
+    echo "Name=COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
+    echo "Comment=This session logs you into COSMIC" >> /usr/share/wayland-sessions/cosmic.desktop && \
+    echo "Exec=cosmic-session" >> /usr/share/wayland-sessions/cosmic.desktop && \
+    echo "Type=Application" >> /usr/share/wayland-sessions/cosmic.desktop && \
+    echo "DesktopNames=cosmic" >> /usr/share/wayland-sessions/cosmic.desktop && \
+    chmod 644 /usr/share/wayland-sessions/cosmic.desktop && \
     # Create welcome message script that doesn't have command not found error
     echo '#!/bin/bash' > /etc/profile.d/welcome.sh && \
     echo 'if [ -f /etc/motd ]; then' >> /etc/profile.d/welcome.sh && \
@@ -466,7 +494,7 @@ RUN mkdir -p /etc/skel/.config/autostart && \
     chmod +x /etc/profile.d/welcome.sh
 
 # ==========================================
-# SECTION 10: FIRST-BOOT SETUP
+# SECTION 11: FIRST-BOOT SETUP
 # ==========================================
 # Create a first-boot script to complete setup
 RUN mkdir -p /usr/lib/systemd/system && \
@@ -485,9 +513,11 @@ RUN mkdir -p /usr/lib/systemd/system && \
     mkdir -p /usr/bin && \
     echo "#!/bin/bash" > /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Ensure GDM is enabled" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Ensure display manager is enabled" >> /usr/bin/orb-firstboot.sh && \
     echo "if [ -f /usr/lib/systemd/system/gdm.service ]; then" >> /usr/bin/orb-firstboot.sh && \
     echo "    systemctl enable gdm.service" >> /usr/bin/orb-firstboot.sh && \
+    echo "elif [ -f /usr/lib/systemd/system/lightdm.service ]; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    systemctl enable lightdm.service" >> /usr/bin/orb-firstboot.sh && \
     echo "fi" >> /usr/bin/orb-firstboot.sh && \
     echo "systemctl set-default graphical.target" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
@@ -497,6 +527,25 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "# Configure neofetch as fallback for fastfetch" >> /usr/bin/orb-firstboot.sh && \
     echo "if ! command -v fastfetch &> /dev/null && command -v neofetch &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
     echo "    ln -sf /usr/bin/neofetch /usr/local/bin/fastfetch 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Set Zen Browser as default browser" >> /usr/bin/orb-firstboot.sh && \
+    echo "if command -v zenith &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    xdg-settings set default-web-browser org.mozilla.zenith.desktop 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Try to install Zen Browser if not installed" >> /usr/bin/orb-firstboot.sh && \
+    echo "if ! command -v zenith &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    rpm-ostree install -y zenith 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "fi" >> /usr/bin/orb-firstboot.sh && \
+    echo "" >> /usr/bin/orb-firstboot.sh && \
+    echo "# Set up COSMIC session" >> /usr/bin/orb-firstboot.sh && \
+    echo "if command -v cosmic-session &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
+    echo "    echo 'Found COSMIC session, configuring as default'" >> /usr/bin/orb-firstboot.sh && \
+    echo "    mkdir -p /var/lib/AccountsService/users/" >> /usr/bin/orb-firstboot.sh && \
+    echo "    echo '[User]' > /var/lib/AccountsService/users/$(whoami) 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "    echo 'XSession=cosmic' >> /var/lib/AccountsService/users/$(whoami) 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
+    echo "    echo 'SystemAccount=false' >> /var/lib/AccountsService/users/$(whoami) 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
     echo "fi" >> /usr/bin/orb-firstboot.sh && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
     echo "# Set up Node.js global packages" >> /usr/bin/orb-firstboot.sh && \
@@ -518,13 +567,14 @@ RUN mkdir -p /usr/lib/systemd/system && \
     echo "" >> /usr/bin/orb-firstboot.sh && \
     echo "# Disable this service after first run" >> /usr/bin/orb-firstboot.sh && \
     echo "systemctl disable orb-firstboot.service" >> /usr/bin/orb-firstboot.sh && \
-    chmod +x /usr/bin/orb-firstboot.sh
+    chmod +x /usr/bin/orb-firstboot.sh && \
+    systemctl enable orb-firstboot.service
 
 # Copy override files and configure the system
 COPY override /
 
 # ==========================================
-# SECTION 11: OS BRANDING
+# SECTION 12: OS BRANDING
 # ==========================================
 # Update OS branding
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
@@ -542,7 +592,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Update welcome message
     echo "Orb OS COSMIC (\l)" > /etc/issue && \
     echo "Orb OS COSMIC" > /etc/issue.net && \
-    echo "Welcome to Orb OS with COSMIC-like desktop environment!" > /etc/motd && \
+    echo "Welcome to Orb OS with COSMIC desktop environment!" > /etc/motd && \
     # Copy branding to permanent location
     cp /etc/os-release /etc/orb-os-release
 
