@@ -22,7 +22,10 @@ env:
   PULL_IMAGE_REGISTRY: "ghcr.io"  # The registry to pull the base image from
   BASE_IMAGE_NAME: "ublue-os"  # The name of the base image
   BASE_IMAGE_FLAVOR: "base-main"
+  KERNEL_FLAVOR: "fedora"  # The kernel flavor to use
+  KERNEL_VERSION: ""
   DEFAULT_TAG: "latest"
+  OSTREE_REMOTE: "ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest"  # Added this line
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref || github.run_id }}-${{ inputs.brand_name}}-${{ inputs.stream_name }}
@@ -179,6 +182,7 @@ jobs:
           --build-arg SHA_HEAD_SHORT=${{ env.SHA_HEAD_SHORT }} \
           --build-arg VERSION_TAG=${{ steps.generate-version.outputs.tag }} \
           --build-arg VERSION_PRETTY="${{ steps.generate-version.outputs.pretty }}" \
+          --build-arg OSTREE_REMOTE="${{ env.OSTREE_REMOTE }}" \
           --tag ${{ env.IMAGE_NAME }}:latest .
 
       # Deleting unused images after build
@@ -259,16 +263,14 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | sudo podman login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      # Skip rechunk and push the original image
-      # This is a simpler approach that should work reliably
-      # This is the section that needs to be fixed
+      # Fixed the registry path issue in the push step
       - name: Push Original Image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           echo "Pushing original image with multiple tags"
     
-          # Fix the registry path here - remove the duplicate username
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          # Fixed registry path
+          REGISTRY_PATH="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
     
           # Tag and push latest
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
@@ -283,6 +285,7 @@ jobs:
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
+
       # This section is optional and only needs to be enabled if you plan on distributing
       # your project for others to consume. You will need to create a public and private key
       # using Cosign and save the private key as a repository secret in Github for this workflow
@@ -294,7 +297,8 @@ jobs:
       - name: Sign container image
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
-          IMAGE_FULL="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+          # Fixed the image path here too
+          IMAGE_FULL="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
           for tag in latest latest.${{ steps.date.outputs.datenum }} ${{ steps.date.outputs.datenum }}; do
             cosign sign -y --key env://COSIGN_PRIVATE_KEY $IMAGE_FULL:$tag || echo "Failed to sign $tag, continuing..."
           done

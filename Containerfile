@@ -1,344 +1,672 @@
-FROM ghcr.io/ublue-os/base-main:42
-
-# Define build arguments 
-ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
-ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
-ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-cosmic}"
-ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
-ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-fedora-kinoite}"
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
+ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base}"
+ARG BASE_IMAGE_FLAVOR="${BASE_IMAGE_FLAVOR:-main}"
+ARG KERNEL_FLAVOR="${KERNEL_FLAVOR:-fedora}"
+ARG KERNEL_VERSION="${KERNEL_VERSION:-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')}"
+ARG SOURCE_IMAGE="${SOURCE_IMAGE:-$BASE_IMAGE_NAME-$BASE_IMAGE_FLAVOR}"
+ARG BASE_IMAGE="ghcr.io/ublue-os/${SOURCE_IMAGE}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-41}"
+ARG JUPITER_FIRMWARE_VERSION="${JUPITER_FIRMWARE_VERSION:-jupiter-20241205.1}"
+ARG SHA_HEAD_SHORT="${SHA_HEAD_SHORT}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
-ARG STELLARITE_VERSION="0.1.0"
-ARG STELLARITE_ARCH="x86_64"
+
+FROM ${BASE_IMAGE}:${FEDORA_MAJOR_VERSION} AS orb-os
+
+ARG IMAGE_NAME="${IMAGE_NAME:-orb-os}"
+ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
+ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-main}"
+ARG KERNEL_FLAVOR="${KERNEL_FLAVOR:-fedora}"
+ARG KERNEL_VERSION="${KERNEL_VERSION:-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')}"
+ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
+ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base-main}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-41}"
+ARG JUPITER_FIRMWARE_VERSION="${JUPITER_FIRMWARE_VERSION:-jupiter-20241205.1}"
+ARG SHA_HEAD_SHORT="${SHA_HEAD_SHORT}"
+ARG VERSION_TAG="${VERSION_TAG}"
+ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
 COPY system /
 
-# ==========================================
-# SECTION 1: Remove and Modify Base Packages
-# ==========================================
+# Update packages that commonly cause build issues
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=fedora \
+    libusb1 \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    vulkan-loader \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    alsa-lib \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gnutls \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glib2 \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    nspr \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    nss \
+    nss-softokn \
+    nss-softokn-freebl \
+    nss-sysinit \
+    nss-util \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    atk \
+    at-spi2-atk \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libaom \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gstreamer1 \
+    gstreamer1-plugins-base \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libdecor \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libtirpc \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libuuid \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libblkid \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libmount \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cups-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libinput \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libopenmpt \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    llvm-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    zlib-ng-compat \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    fontconfig \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    pciutils-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libdrm \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cpp \
+    libatomic \
+    libgcc \
+    libgfortran \
+    libgomp \
+    libobjc \
+    libstdc++ \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libX11 \
+    libX11-common \
+    libX11-xcb \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libv4l \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    elfutils-libelf \
+    elfutils-libs \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glibc \
+    glibc-common \
+    glibc-all-langpacks \
+    glibc-gconv-extra \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    libxcrypt \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    SDL2 \
+    || true && \
+    rpm-ostree override remove \
+    glibc32 \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
+## Other possible base images include:
+# FROM ghcr.io/ublue-os/bazzite:stable
+# FROM ghcr.io/ublue-os/bluefin-nvidia:stable
+#
+# ... and so on, here are more base images
+# Universal Blue Images: https://github.com/orgs/ublue-os/packages
+# Fedora base image: quay.io/fedora/fedora-bootc:41
+# CentOS base images: quay.io/centos-bootc/centos-bootc:stream10
+
+# Setup Copr repos
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    if [[ "${FEDORA_MAJOR_VERSION}" == "rawhide" ]]; then \
+    curl -Lo /etc/yum.repos.d/_copr_ryanabx-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/ryanabx/cosmic-epoch/repo/fedora-rawhide/ryanabx-cosmic-epoch-fedora-rawhide.repo \
+    ; else curl -Lo /etc/yum.repos.d/_copr_ryanabx-cosmic.repo \
+    https://copr.fedorainfracloud.org/coprs/ryanabx/cosmic-epoch/repo/fedora-$(rpm -E %fedora)/ryanabx-cosmic-epoch-fedora-$(rpm -E %fedora).repo \
+    ; fi && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-bazzite.repo https://copr.fedorainfracloud.org/coprs/kylegospo/bazzite/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-bazzite-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo https://copr.fedorainfracloud.org/coprs/kylegospo/bazzite-multilib/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-bazzite-multilib-fedora-"${FEDORA_MAJOR_VERSION}".repo?arch=x86_64 && \
+    curl -Lo /etc/yum.repos.d/_copr_ublue-os-staging.repo https://copr.fedorainfracloud.org/coprs/ublue-os/staging/repo/fedora-"${FEDORA_MAJOR_VERSION}"/ublue-os-staging-fedora-"${FEDORA_MAJOR_VERSION}".repo?arch=x86_64 && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-latencyflex.repo https://copr.fedorainfracloud.org/coprs/kylegospo/LatencyFleX/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-LatencyFleX-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-obs-vkcapture.repo https://copr.fedorainfracloud.org/coprs/kylegospo/obs-vkcapture/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-obs-vkcapture-fedora-"${FEDORA_MAJOR_VERSION}".repo?arch=x86_64 && \
+    curl -Lo /etc/yum.repos.d/_copr_ycollet-audinux.repo https://copr.fedorainfracloud.org/coprs/ycollet/audinux/repo/fedora-"${FEDORA_MAJOR_VERSION}"/ycollet-audinux-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-rom-properties.repo https://copr.fedorainfracloud.org/coprs/kylegospo/rom-properties/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-rom-properties-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_kylegospo-webapp-manager.repo https://copr.fedorainfracloud.org/coprs/kylegospo/webapp-manager/repo/fedora-"${FEDORA_MAJOR_VERSION}"/kylegospo-webapp-manager-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_hhd-dev-hhd.repo https://copr.fedorainfracloud.org/coprs/hhd-dev/hhd/repo/fedora-"${FEDORA_MAJOR_VERSION}"/hhd-dev-hhd-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_che-nerd-fonts.repo https://copr.fedorainfracloud.org/coprs/che/nerd-fonts/repo/fedora-"${FEDORA_MAJOR_VERSION}"/che-nerd-fonts-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo https://copr.fedorainfracloud.org/coprs/sentry/switcheroo-control_discrete/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sentry-switcheroo-control_discrete-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_hikariknight-looking-glass-kvmfr.repo https://copr.fedorainfracloud.org/coprs/hikariknight/looking-glass-kvmfr/repo/fedora-"${FEDORA_MAJOR_VERSION}"/hikariknight-looking-glass-kvmfr-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_mavit-discover-overlay.repo https://copr.fedorainfracloud.org/coprs/mavit/discover-overlay/repo/fedora-"${FEDORA_MAJOR_VERSION}"/mavit-discover-overlay-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_lizardbyte-beta.repo https://copr.fedorainfracloud.org/coprs/lizardbyte/beta/repo/fedora-"${FEDORA_MAJOR_VERSION}"/lizardbyte-beta-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_rok-cdemu.repo https://copr.fedorainfracloud.org/coprs/rok/cdemu/repo/fedora-"${FEDORA_MAJOR_VERSION}"/rok-cdemu-fedora-"${FEDORA_MAJOR_VERSION}".rep && \
+    curl -Lo /etc/yum.repos.d/_copr_rodoma92-rmlint.repo https://copr.fedorainfracloud.org/coprs/rodoma92/rmlint/repo/fedora-"${FEDORA_MAJOR_VERSION}"/rodoma92-rmlint-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_ilyaz-lact.repo https://copr.fedorainfracloud.org/coprs/ilyaz/LACT/repo/fedora-"${FEDORA_MAJOR_VERSION}"/ilyaz-LACT-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_sneexy-zen-browser.repo https://copr.fedorainfracloud.org/coprs/sneexy/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sneexy-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo https://copr.fedorainfracloud.org/coprs/trs-sod/swaylock-effects/repo/fedora-"${FEDORA_MAJOR_VERSION}"/trs-sod-swaylock-effects-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_alebastr-sway-extras.repo https://copr.fedorainfracloud.org/coprs/alebastr/sway-extras/repo/fedora-"${FEDORA_MAJOR_VERSION}"/alebastr-sway-extras-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo https://copr.fedorainfracloud.org/coprs/aeiro/nwg-shell/repo/fedora-"${FEDORA_MAJOR_VERSION}"/aeiro-nwg-shell-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo https://copr.fedorainfracloud.org/coprs/atim/heroic-games-launcher/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-heroic-games-launcher-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/zsh-autosuggest.repo https://download.opensuse.org/repositories/shells:zsh-users:zsh-autosuggestions/Fedora_Rawhide/shells:zsh-users:zsh-autosuggestions.repo && \
+    curl -fsSl https://pkg.cloudflareclient.com/cloudflare-warp-ascii.repo | tee /etc/yum.repos.d/cloudflare-warp.repo && \
+    curl -Lo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo && \
+    sed -i 's@gpgcheck=1@gpgcheck=0@g' /etc/yum.repos.d/tailscale.repo && \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
+    curl -Lo /etc/yum.repos.d/negativo17-fedora-steam.repo https://negativo17.org/repos/fedora-steam.repo && \
+    curl -Lo /etc/yum.repos.d/negativo17-fedora-rar.repo https://negativo17.org/repos/fedora-rar.repo && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# Install standard Fedora kernel
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree cliwrap install-to-root / && \
+    echo "Will install standard Fedora kernel" && \
+    rpm-ostree install \
+    kernel \
+    kernel-core \
+    kernel-modules \
+    scx-scheds && \
+    rpm-ostree override replace \
+    --experimental \
+    bootc \
+    rpm-ostree \
+    rpm-ostree-libs && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# Setup firmware
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    mkdir -p /tmp/linux-firmware-neptune && \
+    curl -Lo /tmp/linux-firmware-neptune/cs35l41-dsp1-spk-cali.bin https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/cs35l41-dsp1-spk-cali.bin && \
+    curl -Lo /tmp/linux-firmware-neptune/cs35l41-dsp1-spk-cali.wmfw https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/cs35l41-dsp1-spk-cali.wmfw && \
+    curl -Lo /tmp/linux-firmware-neptune/cs35l41-dsp1-spk-prot.bin https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/cs35l41-dsp1-spk-prot.bin && \
+    curl -Lo /tmp/linux-firmware-neptune/cs35l41-dsp1-spk-prot.wmfw https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/cs35l41-dsp1-spk-prot.wmfw && \
+    curl -Lo /tmp/linux-firmware-neptune/rtl8822cu_fw.bin https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/rtl_bt/rtl8822cu_fw.bin && \
+    xz --check=crc32 /tmp/linux-firmware-neptune/* && \
+    mv -vf /tmp/linux-firmware-neptune/rtl8822cu_fw.bin.xz /usr/lib/firmware/rtl_bt/rtl8822cu_fw.bin.xz && \
+    mv -vf /tmp/linux-firmware-neptune/* /usr/lib/firmware/cirrus/ && \
+    rm -rf /tmp/linux-firmware-neptune && \
+    mkdir -p /tmp/linux-firmware-galileo && \
+    curl https://gitlab.com/evlaV/linux-firmware-neptune/-/archive/"${JUPITER_FIRMWARE_VERSION}"/linux-firmware-neptune-"${JUPITER_FIRMWARE_VERSION}".tar.gz?path=ath11k/QCA206X -o /tmp/linux-firmware-galileo/ath11k.tar.gz && \
+    tar --strip-components 1 --no-same-owner --no-same-permissions --no-overwrite-dir -xvf /tmp/linux-firmware-galileo/ath11k.tar.gz -C /tmp/linux-firmware-galileo && \
+    xz --check=crc32 /tmp/linux-firmware-galileo/ath11k/QCA206X/hw2.1/* && \
+    rm -f /usr/lib/firmware/ath11k/QCA206X/* && \
+    rm -rf /usr/lib/firmware/ath11k/QCA2066 && \
+    mv -vf /tmp/linux-firmware-galileo/ath11k/QCA206X /usr/lib/firmware/ath11k/QCA206X && \
+    rm -rf /tmp/linux-firmware-galileo/ath11k && \
+    rm -rf /tmp/linux-firmware-galileo/ath11k.tar.gz && \
+    ln -s QCA206X /usr/lib/firmware/ath11k/QCA2066 && \
+    curl -Lo /tmp/linux-firmware-galileo/hpbtfw21.tlv https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/qca/hpbtfw21.tlv && \
+    curl -Lo /tmp/linux-firmware-galileo/hpnv21.309 https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/qca/hpnv21.309 && \
+    curl -Lo /tmp/linux-firmware-galileo/hpnv21.bin https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/qca/hpnv21.bin && \
+    curl -Lo /tmp/linux-firmware-galileo/hpnv21g.309 https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/qca/hpnv21g.309 && \
+    curl -Lo /tmp/linux-firmware-galileo/hpnv21g.bin https://gitlab.com/evlaV/linux-firmware-neptune/-/raw/"${JUPITER_FIRMWARE_VERSION}"/qca/hpnv21g.bin && \
+    xz --check=crc32 /tmp/linux-firmware-galileo/* && \
+    mv -vf /tmp/linux-firmware-galileo/* /usr/lib/firmware/qca/ && \
+    rm -rf /tmp/linux-firmware-galileo && \
+    rm -rf /usr/share/alsa/ucm2/conf.d/acp5x/Valve-Jupiter-1.conf && \
+    ln -s /usr/local/firmware/aw87xxx_acf.bin /usr/lib/firmware/aw87xxx_acf.bin && \
+    ln -s /usr/local/firmware/aw87xxx_acf_air1s.bin /usr/lib/firmware/aw87xxx_acf_air1s.bin && \
+    ln -s /usr/local/firmware/aw87xxx_acf_kun.bin /usr/lib/firmware/aw87xxx_acf_kun.bin && \
+    ln -s /usr/local/firmware/aw87xxx_acf_minipro.bin /usr/lib/firmware/aw87xxx_acf_minipro.bin && \
+    ln -s /usr/local/firmware/aw87xxx_acf_orangepi.bin /usr/lib/firmware/aw87xxx_acf_orangepi.bin && \
+    ln -s /usr/local/firmware/aw87xxx_acf_airplus.bin /usr/lib/firmware/aw87xxx_acf_airplus.bin && \
+    ln -s /usr/local/firmware/aw87xxx_acf_flip.bin /usr/lib/firmware/aw87xxx_acf_flip.bin && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# Add ublue packages
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=akmods,src=/rpms,dst=/tmp/akmods-rpms \
+    --mount=type=bind,from=akmods-extra,src=/rpms,dst=/tmp/akmods-extra-rpms \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
+    rpm-ostree install \
+    /tmp/akmods-rpms/kmods/*kvmfr*.rpm \
+    /tmp/akmods-rpms/kmods/*xone*.rpm \
+    /tmp/akmods-rpms/kmods/*openrazer*.rpm \
+    /tmp/akmods-rpms/kmods/*v4l2loopback*.rpm \
+    /tmp/akmods-rpms/kmods/*wl*.rpm \
+    /tmp/akmods-rpms/kmods/*framework-laptop*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*gcadapter_oc*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*nct6687*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*zenergy*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*vhba*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*gpd-fan*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*ayaneo-platform*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*ayn-platform*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*bmi260*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*ryzen-smu*.rpm \
+    /tmp/akmods-extra-rpms/kmods/*evdi*.rpm \
+    || true && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=copr:copr.fedorainfracloud.org:ublue-os:staging \
+    fwupd \
+    fwupd-plugin-flashrom \
+    fwupd-plugin-modem-manager \
+    fwupd-plugin-uefi-capsule-data && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# Install Valve's patched Mesa, Pipewire, Bluez, and Xwayland#
+# Install patched switcheroo control with proper discrete GPU support
+# Tempporary fix for GPU Encoding
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    mesa-dri-drivers.i686 && \
+    mkdir -p /tmp/mesa-fix64/dri && \
+    cp /usr/lib64/libgallium-*.so /tmp/mesa-fix64/ && \
+    cp /usr/lib64/dri/kms_swrast_dri.so /tmp/mesa-fix64/dri/ && \
+    cp /usr/lib64/dri/libdril_dri.so /tmp/mesa-fix64/dri/ && \
+    cp /usr/lib64/dri/swrast_dri.so /tmp/mesa-fix64/dri/ && \
+    cp /usr/lib64/dri/virtio_gpu_dri.so /tmp/mesa-fix64/dri/ && \
+    mkdir -p /tmp/mesa-fix32/dri && \
+    cp /usr/lib/libgallium-*.so /tmp/mesa-fix32/ && \
+    cp /usr/lib/dri/kms_swrast_dri.so /tmp/mesa-fix32/dri/ && \
+    cp /usr/lib/dri/libdril_dri.so /tmp/mesa-fix32/dri/ && \
+    cp /usr/lib/dri/swrast_dri.so /tmp/mesa-fix32/dri/ && \
+    cp /usr/lib/dri/virtio_gpu_dri.so /tmp/mesa-fix32/dri/ && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=copr:copr.fedorainfracloud.org:kylegospo:bazzite-multilib \
+    mesa-libxatracker \
+    mesa-libglapi \
+    mesa-dri-drivers \
+    mesa-libgbm \
+    mesa-libEGL \
+    mesa-vulkan-drivers \
+    mesa-libGL \
+    pipewire \
+    pipewire-alsa \
+    pipewire-gstreamer \
+    pipewire-jack-audio-connection-kit \
+    pipewire-jack-audio-connection-kit-libs \
+    pipewire-libs \
+    pipewire-pulseaudio \
+    pipewire-utils \
+    pipewire-plugin-libcamera \
+    bluez \
+    bluez-obexd \
+    bluez-cups \
+    bluez-libs \
+    xorg-x11-server-Xwayland \
+    || true && \
+    rsync -a /tmp/mesa-fix64/ /usr/lib64/ && \
+    rsync -a /tmp/mesa-fix32/ /usr/lib/ && \
+    rm -rf /tmp/mesa-fix64 && \
+    rm -rf /tmp/mesa-fix32 && \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/rpmfusion-*.repo && \
+    rpm-ostree install \
+    libbluray \
+    libbluray-utils && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/rpmfusion-*.repo && \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=copr:copr.fedorainfracloud.org:sentry:switcheroo-control_discrete \
+    switcheroo-control && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# Remove unneeded packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
+    ublue-os-update-services \
     firefox \
     firefox-langpacks \
+    htop \
     || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# ==========================================
-# SECTION 2: Add Repositories (More Resilient)
-# ==========================================
-
-RUN curl -s -L -f https://copr.fedorainfracloud.org/coprs/agriffis/neovim-nightly/repo/fedora-$(rpm -E %fedora)/agriffis-neovim-nightly-fedora-$(rpm -E %fedora).repo > /etc/yum.repos.d/agriffis-neovim-nightly-fedora.repo || touch /etc/yum.repos.d/agriffis-neovim-nightly-fedora.repo \
-    && curl -s -L -f https://download.opensuse.org/repositories/home:/dkalev:/hyprland/Fedora_$(rpm -E %fedora)/home:dkalev:hyprland.repo > /etc/yum.repos.d/hyprland.repo || touch /etc/yum.repos.d/hyprland.repo \
-    && curl -s -L -f https://get.zenith.fedorapeople.org/zenith.repo > /etc/yum.repos.d/zen-browser.repo || touch /etc/yum.repos.d/zen-browser.repo \
-    && ostree container commit
-
-# ==========================================
-# SECTION 3: Install Base RPM Packages
-# ==========================================
-
+# Install additional packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install -y \
-    alacritty \
-    appstream-data \
-    btop \
-    corectrl \
-    curl \
-    exa \
-    fastfetch \
-    ghostty \
+    rpm-ostree install \
     git \
-    glibc-langpack-en \
-    kmod-winesync \
-    make \
-    ncurses \
-    neofetch \
-    neovim \
-    NetworkManager-tui \
-    NetworkManager-wifi \
-    nodejs \
-    npm \
-    p7zip \
-    p7zip-plugins \
-    python3-pip \
-    qemu \
-    ripgrep \
-    rsync \
-    starship \
-    stow \
-    tar \
-    tldr \
-    unrar \
-    unzip \
+    discover-overlay \
+    cpulimit \
+    tailscale \
+    lact \
+    fastfetch \
+    btop \
+    fzf \
+    zoxide \
+    eza \
     vim \
-    wget \
-    wireplumber \
-    xdg-desktop-portal \
-    xdg-desktop-portal-gtk \
-    xdg-desktop-portal-wlr \
     zsh \
-    || true \
-    && rpm-ostree install zenith || true \
-    && ostree container commit
-
-# ==========================================
-# SECTION 3.1: Additional Components
-# ==========================================
-
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install -y \
-    gdm \
-    lightdm \
-    bluez \
-    bluez-tools \
-    network-manager-applet \
+    starship \
+    zsh \
+    zsh-autosuggestions \
+    ghostty \
+    ptyxis \
+    tmux \
+    cascadia-code-nf-fonts \
+    cascadia-mono-nf-fonts \
+    nerd-fonts \
     || true && \
-    systemctl set-default graphical.target && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# ==========================================
-# SECTION 4: Configure ZSH
-# ==========================================
+# Install Steam plus supporting packages
+# Downgrade ibus to fix an issue with the Steam keyboard
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=copr:copr.fedorainfracloud.org:kylegospo:bazzite \
+    ibus \
+    ibus-gtk2 \
+    ibus-gtk3 \
+    ibus-gtk4 \
+    ibus-libs \
+    ibus-panel \
+    ibus-setup \
+    ibus-xinit && \
+    rpm-ostree install \
+    jupiter-sd-mounting-btrfs \
+    at-spi2-core.i686 \
+    atk.i686 \
+    vulkan-loader.i686 \
+    alsa-lib.i686 \
+    fontconfig.i686 \
+    gtk2.i686 \
+    libICE.i686 \
+    libnsl.i686 \
+    libxcrypt-compat.i686 \
+    libpng12.i686 \
+    libXext.i686 \
+    libXinerama.i686 \
+    libXtst.i686 \
+    libXScrnSaver.i686 \
+    NetworkManager-libnm.i686 \
+    nss.i686 \
+    pulseaudio-libs.i686 \
+    libcurl.i686 \
+    systemd-libs.i686 \
+    libva.i686 \
+    libvdpau.i686 \
+    libdbusmenu-gtk3.i686 \
+    libatomic.i686 \
+    pipewire-alsa.i686 \
+    gobject-introspection \
+    clinfo \
+    steam \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-RUN mkdir -p /etc/skel/.config && \
-    # Create ZSH configuration
-    echo "# ZSH Configuration" > /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# History settings" >> /etc/skel/.zshrc && \
-    echo "HISTFILE=~/.zsh_history" >> /etc/skel/.zshrc && \
-    echo "HISTSIZE=10000" >> /etc/skel/.zshrc && \
-    echo "SAVEHIST=10000" >> /etc/skel/.zshrc && \
-    echo "setopt appendhistory" >> /etc/skel/.zshrc && \
-    echo "setopt sharehistory" >> /etc/skel/.zshrc && \
-    echo "setopt incappendhistory" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Basic auto/tab completion" >> /etc/skel/.zshrc && \
-    echo "autoload -U compinit" >> /etc/skel/.zshrc && \
-    echo "compinit" >> /etc/skel/.zshrc && \
-    echo "zstyle ':completion:*' menu select" >> /etc/skel/.zshrc && \
-    echo "zmodload zsh/complist" >> /etc/skel/.zshrc && \
-    echo "_comp_options+=(globdots)" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Enable colors" >> /etc/skel/.zshrc && \
-    echo "autoload -U colors && colors" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Use starship prompt if available" >> /etc/skel/.zshrc && \
-    echo "if command -v starship &> /dev/null; then" >> /etc/skel/.zshrc && \
-    echo "    eval \"\$(starship init zsh)\"" >> /etc/skel/.zshrc && \
-    echo "else" >> /etc/skel/.zshrc && \
-    echo "    PROMPT='%F{green}%n@%m%f:%F{blue}%~%f$ '" >> /etc/skel/.zshrc && \
-    echo "fi" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Aliases" >> /etc/skel/.zshrc && \
-    echo "alias ls='exa --icons'" >> /etc/skel/.zshrc && \
-    echo "alias ll='exa --long --icons --header'" >> /etc/skel/.zshrc && \
-    echo "alias la='exa --long --all --icons --header'" >> /etc/skel/.zshrc && \
-    echo "alias lt='exa --tree --icons'" >> /etc/skel/.zshrc && \
-    echo "alias grep='grep --color=auto'" >> /etc/skel/.zshrc && \
-    echo "alias vim='nvim'" >> /etc/skel/.zshrc && \
-    echo "alias v='nvim'" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Run fastfetch on terminal start" >> /etc/skel/.zshrc && \
-    echo "fastfetch" >> /etc/skel/.zshrc && \
-    echo "" >> /etc/skel/.zshrc && \
-    echo "# Welcome message" >> /etc/skel/.zshrc && \
-    echo "cat << 'EOF'" >> /etc/skel/.zshrc && \
-    echo "Welcome to Orb OS: Terminal Edition" >> /etc/skel/.zshrc && \
-    echo "Type 'starship init' to initialize the starship prompt." >> /etc/skel/.zshrc && \
-    echo "EOF" >> /etc/skel/.zshrc && \
-    # Create .zshenv file
-    echo "# ZSH Environment" > /etc/skel/.zshenv && \
-    echo "" >> /etc/skel/.zshenv && \
-    echo "# Set PATH" >> /etc/skel/.zshenv && \
-    echo "export PATH=\$HOME/.local/bin:\$PATH" >> /etc/skel/.zshenv && \
-    echo "" >> /etc/skel/.zshenv
+# Install Lutris and some additional packages
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    lutris \
+    umu-launcher \
+    wine-core.x86_64 \
+    wine-core.i686 \
+    wine-pulseaudio.x86_64 \
+    wine-pulseaudio.i686 \
+    libFAudio.x86_64 \
+    libFAudio.i686 \
+    winetricks \
+    latencyflex-vulkan-layer \
+    mesa-vulkan-drivers.i686 \
+    mesa-va-drivers.i686 \
+    vkBasalt.x86_64 \
+    vkBasalt.i686 \
+    mangohud.x86_64 \
+    mangohud.i686 \
+    libobs_vkcapture.x86_64 \
+    libobs_glcapture.x86_64 \
+    libobs_vkcapture.i686 \
+    libobs_glcapture.i686 \
+    || true && \
+    sed -i 's@\[Desktop Entry\]@\[Desktop Entry\]\nNoDisplay=true@g' /usr/share/applications/winetricks.desktop || true && \
+    curl -Lo /tmp/latencyflex.tar.xz $(curl https://api.github.com/repos/ishitatsuyuki/LatencyFleX/releases/latest | jq -r '.assets[] | select(.name| test(".*.tar.xz$")).browser_download_url') || true && \
+    mkdir -p /tmp/latencyflex || true && \
+    tar --no-same-owner --no-same-permissions --no-overwrite-dir --strip-components 1 -xvf /tmp/latencyflex.tar.xz -C /tmp/latencyflex || true && \
+    rm -f /tmp/latencyflex.tar.xz || true && \
+    cp -r /tmp/latencyflex/wine/usr/lib/wine/* /usr/lib64/wine/ || true && \
+    rm -rf /tmp/latencyflex || true && \
+    curl -Lo /usr/bin/latencyflex https://raw.githubusercontent.com/KyleGospo/LatencyFleX-Installer/main/install.sh || true && \
+    chmod +x /usr/bin/latencyflex || true && \
+    sed -i 's@/usr/lib/wine/@/usr/lib64/wine/@g' /usr/bin/latencyflex || true && \
+    sed -i 's@"dxvk.conf"@"/usr/share/latencyflex/dxvk.conf"@g' /usr/bin/latencyflex || true && \
+    chmod +x /usr/bin/latencyflex || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-# ==========================================
-# SECTION 5: Configure Bash (Fallback)
-# ==========================================
+# Install Heroic and some additional packages
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    heroic-games-launcher-bin \
+    umu-launcher \
+    wine-core.x86_64 \
+    wine-core.i686 \
+    wine-pulseaudio.x86_64 \
+    wine-pulseaudio.i686 \
+    libFAudio.x86_64 \
+    libFAudio.i686 \
+    winetricks \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-RUN echo "# .bash_profile" > /etc/skel/.bash_profile && \
-    echo "if [ -f ~/.bashrc ]; then" >> /etc/skel/.bash_profile && \
-    echo "    . ~/.bashrc" >> /etc/skel/.bash_profile && \
-    echo "fi" >> /etc/skel/.bash_profile && \
-    # Create better bashrc without the "command not found" error
-    echo "# .bashrc" > /etc/skel/.bashrc && \
-    echo "" >> /etc/skel/.bashrc && \
-    echo "# Source global definitions" >> /etc/skel/.bashrc && \
-    echo "if [ -f /etc/bashrc ]; then" >> /etc/skel/.bashrc && \
-    echo "    . /etc/bashrc" >> /etc/skel/.bashrc && \
-    echo "fi" >> /etc/skel/.bashrc && \
-    echo "" >> /etc/skel/.bashrc && \
-    echo "# User specific aliases and functions" >> /etc/skel/.bashrc && \
-    echo "if command -v exa &> /dev/null; then" >> /etc/skel/.bashrc && \
-    echo "    alias ls='exa --icons'" >> /etc/skel/.bashrc && \
-    echo "    alias ll='exa --long --icons --header'" >> /etc/skel/.bashrc && \
-    echo "    alias la='exa --long --all --icons --header'" >> /etc/skel/.bashrc && \
-    echo "    alias lt='exa --tree --icons'" >> /etc/skel/.bashrc && \
-    echo "else" >> /etc/skel/.bashrc && \
-    echo "    alias ls='ls --color=auto'" >> /etc/skel/.bashrc && \
-    echo "    alias ll='ls -la'" >> /etc/skel/.bashrc && \
-    echo "fi" >> /etc/skel/.bashrc && \
-    echo "alias grep='grep --color=auto'" >> /etc/skel/.bashrc && \
-    echo "alias vim='nvim'" >> /etc/skel/.bashrc && \
-    echo "alias v='nvim'" >> /etc/skel/.bashrc && \
-    echo "" >> /etc/skel/.bashrc && \
-    echo "# Set prompt" >> /etc/skel/.bashrc && \
-    echo "if command -v starship &> /dev/null; then" >> /etc/skel/.bashrc && \
-    echo "    eval \"\$(starship init bash)\"" >> /etc/skel/.bashrc && \
-    echo "else" >> /etc/skel/.bashrc && \
-    echo "    PS1='\[\033[01;32m\]\u@\h\[\033[00m\]:\[\033[01;34m\]\w\[\033[00m\]\$ '" >> /etc/skel/.bashrc && \
-    echo "fi" >> /etc/skel/.bashrc && \
-    echo "" >> /etc/skel/.bashrc && \
-    echo "# Run fastfetch on terminal start" >> /etc/skel/.bashrc && \
-    echo "fastfetch" >> /etc/skel/.bashrc && \
-    # Set Zen Browser as default browser
-    mkdir -p /etc/skel/.config && \
-    echo "[Default Applications]" > /etc/skel/.config/mimeapps.list && \
-    echo "text/html=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/http=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/https=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/about=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list && \
-    echo "x-scheme-handler/unknown=org.mozilla.zenith.desktop" >> /etc/skel/.config/mimeapps.list
+# Install cloudflare-warp supplied from local file
+# Will be used later along with script
+COPY vendor/cloudflare-warp /usr/share/ublue-os/packages
 
-# ==========================================
-# SECTION 6: FIRST-BOOT SETUP
-# ==========================================
+# Install and configure Cosmic DE
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    cosmic-desktop && \
+    # Install gnome-software and gnome-disks
+    rpm-ostree install \
+    gnome-software \
+    gnome-disk-utility \
+    gparted \
+    gnome-keyring NetworkManager-tui \
+    NetworkManager-openvpn && \
+    # We remove cosmic-store and replace it with gnome-software for better functionality
+    rpm-ostree remove \
+    cosmic-store || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-RUN mkdir -p /usr/lib/systemd/system && \
-    echo "[Unit]" > /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "Description=First Boot Setup for Orb OS" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "Before=display-manager.service" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "After=network.target" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "[Service]" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "Type=oneshot" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "ExecStart=/usr/bin/orb-firstboot.sh" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "RemainAfterExit=yes" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "[Install]" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    echo "WantedBy=multi-user.target" >> /usr/lib/systemd/system/orb-firstboot.service && \
-    mkdir -p /usr/bin && \
-    echo "#!/bin/bash" > /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Ensure display manager is enabled" >> /usr/bin/orb-firstboot.sh && \
-    echo "if [ -f /usr/lib/systemd/system/gdm.service ]; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    systemctl enable gdm.service" >> /usr/bin/orb-firstboot.sh && \
-    echo "elif [ -f /usr/lib/systemd/system/lightdm.service ]; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    systemctl enable lightdm.service" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "systemctl set-default graphical.target" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Set zsh as default shell for future users" >> /usr/bin/orb-firstboot.sh && \
-    echo "sed -i 's|^SHELL=.*|SHELL=/bin/zsh|' /etc/default/useradd" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Set Zen Browser as default browser" >> /usr/bin/orb-firstboot.sh && \
-    echo "if command -v zenith &> /dev/null; then" >> /usr/bin/orb-firstboot.sh && \
-    echo "    xdg-settings set default-web-browser org.mozilla.zenith.desktop 2>/dev/null || true" >> /usr/bin/orb-firstboot.sh && \
-    echo "fi" >> /usr/bin/orb-firstboot.sh && \
-    echo "" >> /usr/bin/orb-firstboot.sh && \
-    echo "# Disable this service after first run" >> /usr/bin/orb-firstboot.sh && \
-    echo "systemctl disable orb-firstboot.service" >> /usr/bin/orb-firstboot.sh && \
-    chmod +x /usr/bin/orb-firstboot.sh && \
-    systemctl enable orb-firstboot.service
+# Install Gamescope, ROCM, and Waydroid on non-Nvidia images
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    gamescope.x86_64 \
+    gamescope-libs.i686 \
+    gamescope-shaders \
+    rocm-hip \
+    rocm-opencl \
+    rocm-clinfo \
+    waydroid \
+    cage \
+    wlr-randr && \
+    sed -i~ -E 's/=.\$\(command -v (nft|ip6?tables-legacy).*/=/g' /usr/lib/waydroid/data/scripts/waydroid-net.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-# ==========================================
-# SECTION 7: Configure Terminal Apps
-# ==========================================
+# Homebrew
+# For some reason some devices don't get homebrew installed on their machine when rebasing.
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    echo "Will install Homebrew inside /home/linuxbrew" && \
+    touch /.dockerenv && \
+    mkdir -p /var/home && \
+    mkdir -p /var/roothome && \
+    curl -Lo /tmp/brew-install https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
+    chmod +x /tmp/brew-install && \
+    /tmp/brew-install && \
+    tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-# Configure Alacritty
-RUN mkdir -p /etc/skel/.config/alacritty && \
-    echo "# Alacritty Terminal Configuration" > /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "font:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  normal:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "    family: JetBrainsMono Nerd Font" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  size: 12" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "window:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  opacity: 0.95" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  padding:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "    x: 10" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "    y: 10" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "shell:" >> /etc/skel/.config/alacritty/alacritty.yml && \
-    echo "  program: /bin/zsh" >> /etc/skel/.config/alacritty/alacritty.yml
+# Install WinApps dependencies
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    podman-compose \
+    dialog \
+    nmap-ncat \
+    xfreerdp \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
 
-# Configure Ghostty
-RUN mkdir -p /etc/skel/.config/ghostty && \
-    echo "# Ghostty Terminal Configuration" > /etc/skel/.config/ghostty/config && \
-    echo "theme = catppuccin-mocha" >> /etc/skel/.config/ghostty/config && \
-    echo "font-family = JetBrainsMono Nerd Font" >> /etc/skel/.config/ghostty/config && \
-    echo "font-size = 12" >> /etc/skel/.config/ghostty/config && \
-    echo "cursor-style = beam" >> /etc/skel/.config/ghostty/config && \
-    echo "background-opacity = 0.95" >> /etc/skel/.config/ghostty/config && \
-    echo "window-padding-x = 10" >> /etc/skel/.config/ghostty/config && \
-    echo "window-padding-y = 10" >> /etc/skel/.config/ghostty/config && \
-    echo "shell = /bin/zsh" >> /etc/skel/.config/ghostty/config
-
-# Configure Starship prompt
-RUN mkdir -p /etc/skel/.config && \
-    echo '# Starship Configuration' > /etc/skel/.config/starship.toml && \
-    echo '[character]' >> /etc/skel/.config/starship.toml && \
-    echo 'success_symbol = "[➜](bold green)"' >> /etc/skel/.config/starship.toml && \
-    echo 'error_symbol = "[✗](bold red)"' >> /etc/skel/.config/starship.toml
-
-# ==========================================
-# SECTION 8: FASTFETCH SETUP
-# ==========================================
-# Ensure fastfetch is properly installed and configured
-RUN mkdir -p /etc/skel/.config/fastfetch && \
-    echo "# Fastfetch Configuration" > /etc/skel/.config/fastfetch/config.jsonc && \
-    echo "{" >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    "logo": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "type": "small",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "padding": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '            "left": 2,' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '            "right": 2' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        }' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    },' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    "display": {' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "separator": "  ",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "keyWidth": 15' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    },' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    "modules": [' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "title",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "os",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "kernel",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "uptime",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "packages",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "shell",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "terminal",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "cpu",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "memory",' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '        "disk"' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '    ]' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    echo '}' >> /etc/skel/.config/fastfetch/config.jsonc && \
-    # Create system config
-    mkdir -p /etc/fastfetch && \
-    cp /etc/skel/.config/fastfetch/config.jsonc /etc/fastfetch/
-
-# ==========================================
-# SECTION 9: OS BRANDING
-# ==========================================
-# Update OS branding
+# Finalize
+COPY override /
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Update system branding
-    sed -i 's/Kinoite/Orb OS/g' /etc/os-release && \
-    sed -i 's/PRETTY_NAME=.*/PRETTY_NAME="Orb OS COSMIC"/' /etc/os-release && \
-    sed -i 's/NAME=.*/NAME="Orb OS"/' /etc/os-release && \
-    sed -i 's/ID=.*/ID=orb-os/' /etc/os-release && \
-    # Add custom variant information
-    echo "VARIANT_ID=cosmic" >> /etc/os-release && \
-    echo "VARIANT=COSMIC" >> /etc/os-release && \
-    echo "CURRENT_USER=Ariffansyah" >> /etc/os-release && \
-    # Create version file
-    mkdir -p /etc/orb-os && \
-    echo "Orb OS COSMIC - 2025-05-10 02:30:44" > /etc/orb-os/version && \
-    # Update welcome message
-    echo "Orb OS COSMIC (\l)" > /etc/issue && \
-    echo "Orb OS COSMIC" > /etc/issue.net && \
-    echo "Welcome to Orb OS with COSMIC desktop environment!" > /etc/motd && \
-    # Copy branding to permanent location
-    cp /etc/os-release /etc/orb-os-release
-
-# Final systemd configuration
-RUN systemctl set-default graphical.target
+    # Service management
+    systemctl enable lactd || true && \
+    systemctl disable gdm || true && \
+    systemctl disable sddm || true && \
+    systemctl enable cosmic-greeter && \
+    systemctl enable brew-dir-fix.service && \
+    systemctl enable brew-setup.service && \
+    systemctl disable brew-upgrade.timer && \
+    systemctl disable brew-update.timer && \
+    systemctl disable waydroid-container.service && \
+    systemctl --global enable podman.socket && \
+    # Enabling just files
+    echo "import \"/usr/share/ublue-os/just/80-orb-os.just\"" >> /usr/share/ublue-os/justfile && \
+    echo "import \"/usr/share/ublue-os/just/81-orb-os-fix.just\"" >> /usr/share/ublue-os/justfile && \
+    echo "import \"/usr/share/ublue-os/just/82-orb-os-waydroid.just\"" >> /usr/share/ublue-os/justfile && \
+    echo "import \"/usr/share/ublue-os/just/84-orb-os-virt.just\"" >> /usr/share/ublue-os/justfile && \
+    # Adding good stuff
+    curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
+    curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh && \
+    chmod +x /usr/bin/waydroid-choose-gpu && \
+    curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
+    curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini && \
+    curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini && \
+    # Disabling copr for faster sync
+    sed -i 's/stage/none/g' /etc/rpm-ostreed.conf && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-akmods.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-bazzite-multilib.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ublue-os-staging.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-latencyflex.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-obs-vkcapture.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_ycollet-audinux.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-rom-properties.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_kylegospo-webapp-manager.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hhd-dev-hhd.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_che-nerd-fonts.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_sentry-switcheroo-control_discrete.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_mavit-discover-overlay.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_lizardbyte-beta.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_hikariknight-looking-glass-kvmfr.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_pgdev-ghostty.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-starship.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_atim-heroic-games-launcher.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_trs-sod-swaylock-effects.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_alebastr-sway-extras.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/_copr_aeiro-nwg-shell.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/tailscale.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/charm.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-multimedia.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-steam.repo && \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/negativo17-fedora-rar.repo && \
+    mkdir -p /etc/flatpak/remotes.d && \
+    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # Finishing stuff
+    /usr/libexec/containerbuild/image-info && \
+    /usr/libexec/containerbuild/build-initramfs && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    ostree container commit
