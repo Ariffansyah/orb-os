@@ -107,7 +107,7 @@ jobs:
           command: |
             # pull the base images used for FROM in Containerfile so
             # we can retry on that unfortunately common failure case
-            sudo podman pull ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
+            sudo podman pull ghcr.io/ublue-os/base-main:${{ env.FEDORA_VERSION }}
 
             # Add rechunk as well to remove this source of failure
             sudo podman pull ghcr.io/hhd-dev/rechunk:v1.1.2
@@ -120,7 +120,7 @@ jobs:
           attempt_delay: 15000
           command: |
             set -eo pipefail
-            skopeo inspect docker://${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }} > source.json
+            skopeo inspect docker://ghcr.io/ublue-os/base-main:${{ env.FEDORA_VERSION }} > source.json
             ver=$(jq -r '.Labels["org.opencontainers.image.version"] // "42"' source.json)
             if [ -z "$ver" ] || [ "null" = "$ver" ]; then
               echo "Using fallback version ${{ env.FEDORA_VERSION }}"
@@ -193,7 +193,7 @@ jobs:
       - name: Remove auxiliary images
         # We are tight on space, need at least 2x for OSTree
         run: |
-          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
+          sudo podman image rm ghcr.io/ublue-os/base-main:${{ env.FEDORA_VERSION }}
 
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
@@ -238,4 +238,10 @@ jobs:
           openssl x509 -in akmods.der -out akmods.crt
           
           # Try verification but don't fail build if it doesn't work
-          sbverify --cert kernel-sign.
+          sbverify --cert kernel-sign.crt vmlinuz || echo "Verification with first cert failed"
+          sbverify --cert akmods.crt vmlinuz || echo "Verification with second cert failed"
+
+      # Workaround bug where capital letters in your GitHub username make it impossible to push to GHCR.
+      # @macbre/push-to-ghcr/issues/12
+      - name: Lowercase Registry
+        id: registry_

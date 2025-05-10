@@ -2,15 +2,13 @@ ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base}"
 ARG BASE_IMAGE_FLAVOR="${BASE_IMAGE_FLAVOR:-main}"
 ARG KERNEL_FLAVOR="${KERNEL_FLAVOR:-fedora}"
 ARG KERNEL_VERSION="${KERNEL_VERSION:-$(rpm -q kernel --queryformat '%{VERSION}-%{RELEASE}.%{ARCH}')}"
-ARG SOURCE_IMAGE="${SOURCE_IMAGE:-$BASE_IMAGE_NAME-$BASE_IMAGE_FLAVOR}"
-ARG BASE_IMAGE="ghcr.io/ublue-os/${SOURCE_IMAGE}"
-ARG FEDORA_MAJOR_VERSION="base-main:-42"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG JUPITER_FIRMWARE_VERSION="${JUPITER_FIRMWARE_VERSION:-jupiter-20241205.1}"
 ARG SHA_HEAD_SHORT="${SHA_HEAD_SHORT}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
-FROM ${BASE_IMAGE}:${FEDORA_MAJOR_VERSION} AS orb-os
+FROM ghcr.io/ublue-os/base-main:${FEDORA_MAJOR_VERSION} AS orb-os
 
 ARG IMAGE_NAME="${IMAGE_NAME:-orb-os}"
 ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
@@ -445,108 +443,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Install Steam plus supporting packages
-# Downgrade ibus to fix an issue with the Steam keyboard
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree override replace \
-    --experimental \
-    --from repo=copr:copr.fedorainfracloud.org:kylegospo:bazzite \
-    ibus \
-    ibus-gtk2 \
-    ibus-gtk3 \
-    ibus-gtk4 \
-    ibus-libs \
-    ibus-panel \
-    ibus-setup \
-    ibus-xinit && \
-    rpm-ostree install \
-    jupiter-sd-mounting-btrfs \
-    at-spi2-core.i686 \
-    atk.i686 \
-    vulkan-loader.i686 \
-    alsa-lib.i686 \
-    fontconfig.i686 \
-    gtk2.i686 \
-    libICE.i686 \
-    libnsl.i686 \
-    libxcrypt-compat.i686 \
-    libpng12.i686 \
-    libXext.i686 \
-    libXinerama.i686 \
-    libXtst.i686 \
-    libXScrnSaver.i686 \
-    NetworkManager-libnm.i686 \
-    nss.i686 \
-    pulseaudio-libs.i686 \
-    libcurl.i686 \
-    systemd-libs.i686 \
-    libva.i686 \
-    libvdpau.i686 \
-    libdbusmenu-gtk3.i686 \
-    libatomic.i686 \
-    pipewire-alsa.i686 \
-    gobject-introspection \
-    clinfo \
-    steam \
-    || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
-# Install Lutris and some additional packages
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    lutris \
-    umu-launcher \
-    wine-core.x86_64 \
-    wine-core.i686 \
-    wine-pulseaudio.x86_64 \
-    wine-pulseaudio.i686 \
-    libFAudio.x86_64 \
-    libFAudio.i686 \
-    winetricks \
-    latencyflex-vulkan-layer \
-    mesa-vulkan-drivers.i686 \
-    mesa-va-drivers.i686 \
-    vkBasalt.x86_64 \
-    vkBasalt.i686 \
-    mangohud.x86_64 \
-    mangohud.i686 \
-    libobs_vkcapture.x86_64 \
-    libobs_glcapture.x86_64 \
-    libobs_vkcapture.i686 \
-    libobs_glcapture.i686 \
-    || true && \
-    sed -i 's@\[Desktop Entry\]@\[Desktop Entry\]\nNoDisplay=true@g' /usr/share/applications/winetricks.desktop || true && \
-    curl -Lo /tmp/latencyflex.tar.xz $(curl https://api.github.com/repos/ishitatsuyuki/LatencyFleX/releases/latest | jq -r '.assets[] | select(.name| test(".*.tar.xz$")).browser_download_url') || true && \
-    mkdir -p /tmp/latencyflex || true && \
-    tar --no-same-owner --no-same-permissions --no-overwrite-dir --strip-components 1 -xvf /tmp/latencyflex.tar.xz -C /tmp/latencyflex || true && \
-    rm -f /tmp/latencyflex.tar.xz || true && \
-    cp -r /tmp/latencyflex/wine/usr/lib/wine/* /usr/lib64/wine/ || true && \
-    rm -rf /tmp/latencyflex || true && \
-    curl -Lo /usr/bin/latencyflex https://raw.githubusercontent.com/KyleGospo/LatencyFleX-Installer/main/install.sh || true && \
-    chmod +x /usr/bin/latencyflex || true && \
-    sed -i 's@/usr/lib/wine/@/usr/lib64/wine/@g' /usr/bin/latencyflex || true && \
-    sed -i 's@"dxvk.conf"@"/usr/share/latencyflex/dxvk.conf"@g' /usr/bin/latencyflex || true && \
-    chmod +x /usr/bin/latencyflex || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
-# Install Heroic and some additional packages
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    heroic-games-launcher-bin \
-    umu-launcher \
-    wine-core.x86_64 \
-    wine-core.i686 \
-    wine-pulseaudio.x86_64 \
-    wine-pulseaudio.i686 \
-    libFAudio.x86_64 \
-    libFAudio.i686 \
-    winetricks \
-    || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
 # Install cloudflare-warp supplied from local file
 # Will be used later along with script
 COPY vendor/cloudflare-warp /usr/share/ublue-os/packages
@@ -568,22 +464,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Install Gamescope, ROCM, and Waydroid on non-Nvidia images
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    gamescope.x86_64 \
-    gamescope-libs.i686 \
-    gamescope-shaders \
-    rocm-hip \
-    rocm-opencl \
-    rocm-clinfo \
-    waydroid \
-    cage \
-    wlr-randr && \
-    sed -i~ -E 's/=.\$\(command -v (nft|ip6?tables-legacy).*/=/g' /usr/lib/waydroid/data/scripts/waydroid-net.sh && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
 # Homebrew
 # For some reason some devices don't get homebrew installed on their machine when rebasing.
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -595,17 +475,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     chmod +x /tmp/brew-install && \
     /tmp/brew-install && \
     tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
-# Install WinApps dependencies
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    podman-compose \
-    dialog \
-    nmap-ncat \
-    xfreerdp \
-    || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -630,8 +499,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "import \"/usr/share/ublue-os/just/84-orb-os-virt.just\"" >> /usr/share/ublue-os/justfile && \
     # Adding good stuff
     curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
-    curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh && \
-    chmod +x /usr/bin/waydroid-choose-gpu && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini && \
