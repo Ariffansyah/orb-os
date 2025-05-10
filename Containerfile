@@ -114,9 +114,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     nautilus \
     # PostgreSQL CLI tools
     postgresql \
-    # Add Zen Browser installation using Flatpak
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    flatpak install -y flathub org.mozilla.firefox || true && \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
