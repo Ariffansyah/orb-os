@@ -262,11 +262,28 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Setup Flatpak and install apps from flatpaks file
 COPY flatpaks /tmp/flatpaks
+
+# Create required directories and environment
 RUN mkdir -p /etc/flatpak/remotes.d && \
-    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    mkdir -p /root/.cache/dconf && \
+    mkdir -p /var/tmp && \
+    chmod 1777 /var/tmp && \
+    # Install Extension Manager separately first
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    xargs -a /tmp/flatpaks flatpak install --noninteractive flathub && \
-    rm -f /tmp/flatpaks
+    flatpak install --noninteractive flathub com.mattjakeman.ExtensionManager && \
+    # Process other Flatpaks
+    grep -v "com.mattjakeman.ExtensionManager" /tmp/flatpaks > /tmp/remaining-flatpaks && \
+    # Remove problematic GStreamer Vaapi plugin
+    grep -v "com.obsproject.Studio.Plugin.GStreamerVaapi" /tmp/remaining-flatpaks > /tmp/filtered-flatpaks && \
+    # Install remaining Flatpaks
+    cat /tmp/filtered-flatpaks | while read -r line; do \
+    if [ -n "$line" ]; then \
+    echo "Installing $line" && \
+    flatpak install --noninteractive flathub $line || echo "Failed to install $line, continuing..." ; \
+    fi \
+    done && \
+    # Clean up
+    rm -f /tmp/flatpaks /tmp/remaining-flatpaks /tmp/filtered-flatpaks
 
 # ==========================================
 # SECTION 13: FINAL CONFIGURATION
