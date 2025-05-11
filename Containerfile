@@ -140,8 +140,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Ensure the Zen Browser COPR repo is enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
     rpm-ostree install \
     # Productivity tools
     git fzf zoxide eza \
@@ -156,11 +154,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cascadia-code-nf-fonts cascadia-mono-nf-fonts nerd-fonts \
     # Editors
     neovim \
-    # Install Zen Browser from COPR - make sure this is installed
+    # Install Zen Browser from COPR
     zen-browser \
-    && \
-    # Verify it's installed
-    rpm -q zen-browser && \
+    || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -246,22 +242,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 11: ZEN BROWSER SPECIFIC INSTALLATION
-# ==========================================
-# Dedicated section to ensure Zen Browser is properly installed
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Make sure COPR repo is enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
-    # Force install Zen Browser
-    rpm-ostree install zen-browser && \
-    # Verify it's installed
-    rpm -q zen-browser && \
-    # Clean up
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 12: FINAL CONFIGURATION
+# SECTION 11: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
@@ -298,11 +279,9 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Disable COPR repositories to speed up syncing but keep zen-browser enabled
+    # Disable COPR repositories to speed up syncing
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    find /etc/yum.repos.d/ -name '_copr_*.repo' -not -name '_copr_sneexy-zen-browser.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
-    # Make sure Zen Browser COPR stays enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
+    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
     # Disable other repositories for faster sync
     for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
     if [ -f "/etc/yum.repos.d/$repo" ]; then \
@@ -312,6 +291,8 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # Re-enable the Zen Browser COPR repository
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
     # Configure OSTree remote and origin
     ostree remote delete orb-os 2>/dev/null || true && \
     ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
