@@ -18,7 +18,6 @@ COPY system /
 # ==========================================
 # Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Base system overrides
     rpm-ostree override replace \
     --experimental \
     --from repo=fedora \
@@ -108,9 +107,13 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
+    # Terminal utilities
     git vim zsh starship tmux \
+    # Terminal emulators
     ghostty ptyxis \
+    # File manager
     nautilus \
+    # PostgreSQL CLI tools
     postgresql \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
@@ -119,6 +122,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 5: PACKAGE REMOVALS
 # ==========================================
+# Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
     ublue-os-update-services \
@@ -131,16 +135,23 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 6: DEVELOPER TOOLS & UTILITIES
 # ==========================================
+# Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
+    # Productivity tools
     git fzf zoxide \
     btop fastfetch \
+    # System utilities
     cpulimit \
     unzip \
+    # Shells and terminal enhancers
     vim zsh starship zsh-autosuggestions \
     ghostty ptyxis tmux \
+    # Fonts
     cascadia-code-nf-fonts cascadia-mono-nf-fonts \
+    # Editors
     neovim \
+    # Ensure Firefox is installed
     firefox firefox-langpacks \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
@@ -149,38 +160,101 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 7: DESKTOP ENVIRONMENT
 # ==========================================
+# Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install GNOME Core
     rpm-ostree install \
     gnome-shell gnome-session gnome-terminal gnome-control-center \
     gnome-tweaks gnome-extensions-app gnome-shell-extension-appindicator \
     gnome-backgrounds gnome-themes-extra \
     gnome-shell-extension-dash-to-dock \
     gdm && \
+    # Install gnome-software and gnome-disks
     rpm-ostree install \
     gnome-software \
     gnome-disk-utility \
     gparted \
     gnome-keyring NetworkManager-tui \
     NetworkManager-openvpn && \
+    # Clean up
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 12.5: FLATPAK SETUP AND INSTALLATION
 # ==========================================
+# Setup Flatpak and install apps from flatpaks file
 COPY flatpaks /tmp/flatpaks
-
 RUN set -e && \
-    mkdir -p /etc/flatpak/remotes.d /root/.cache/dconf /var/tmp && \
+    mkdir -p /etc/flatpak/remotes.d /var/tmp && \
     chmod 1777 /var/tmp && \
+    # Add Flathub repository
+    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
     flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    flatpak install --noninteractive flathub com.mattjakeman.ExtensionManager && \
-    grep -v "com.mattjakeman.ExtensionManager" /tmp/flatpaks > /tmp/remaining-flatpaks && \
-    grep -v "com.obsproject.Studio.Plugin.GStreamerVaapi" /tmp/remaining-flatpaks > /tmp/filtered-flatpaks && \
-    cat /tmp/filtered-flatpaks | while read -r line; do \
-    if [ -n "$line" ]; then \
-    echo "Installing $line" && \
-    flatpak install --noninteractive flathub $line || echo "Failed to install $line, continuing..."; \
+    # Install flatpaks from the list
+    while IFS= read -r package; do \
+    if [ -n "$package" ]; then \
+    echo "Installing $package..." && \
+    flatpak install --noninteractive flathub "$package" || echo "Failed to install $package, continuing..."; \
     fi; \
-    done && \
-    rm -f /tmp/flatpaks /tmp/remaining-flatpaks /tmp/filtered-flatpaks
+    done < /tmp/flatpaks && \
+    # Clean up
+    rm -f /tmp/flatpaks
+
+# ==========================================
+# SECTION 13: FINAL CONFIGURATION
+# ==========================================
+# Copy override files and configure the system
+COPY override /
+
+RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Create OSTree remote configuration for proper updates
+    mkdir -p /etc/ostree/remotes.d && \
+    echo -e "[remote \"orb-os\"]\nurl=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os\ngpg-verify=false" > /etc/ostree/remotes.d/orb-os.conf && \
+    # Create directory for firstboot script
+    mkdir -p /usr/libexec/orb-os && \
+    # Create firstboot script to set proper origin
+    echo -e '#!/bin/bash\n\n# Set the correct origin for the current deployment\nrpm-ostree origin referrer set ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest\necho "Origin reference updated successfully"\n' > /usr/libexec/orb-os/firstboot.sh && \
+    chmod +x /usr/libexec/orb-os/firstboot.sh && \
+    # Create firstboot service
+    mkdir -p /usr/lib/systemd/system && \
+    echo -e '[Unit]\nDescription=Set correct origin for orb-os\nAfter=network-online.target\nWants=network-online.target\nConditionPathExists=!/var/lib/orb-os-firstboot-done\n\n[Service]\nType=oneshot\nExecStart=/usr/libexec/orb-os/firstboot.sh\nExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /usr/lib/systemd/system/orb-os-firstboot.service && \
+    # Service management
+    systemctl enable lactd || true && \
+    systemctl enable gdm && \
+    systemctl disable sddm || true && \
+    systemctl disable cosmic-greeter || true && \
+    systemctl enable orb-os-firstboot.service && \
+    systemctl set-default graphical.target && \
+    systemctl enable brew-dir-fix.service || true && \
+    systemctl enable brew-setup.service || true && \
+    systemctl disable brew-upgrade.timer || true && \
+    systemctl disable brew-update.timer || true && \
+    systemctl disable waydroid-container.service || true && \
+    systemctl --global enable podman.socket && \
+    # Add configuration files and utilities
+    curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf || true && \
+    curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh || true && \
+    chmod +x /usr/bin/waydroid-choose-gpu || true && \
+    curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf || true && \
+    curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
+    curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
+    # Disable unnecessary repos
+    sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
+    # Find and disable COPR repos except for essential ones
+    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
+    # Disable other repositories for faster sync
+    for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
+    if [ -f "/etc/yum.repos.d/$repo" ]; then \
+    sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
+    fi \
+    done || true && \
+    # Configure OSTree remote and origin
+    ostree remote delete orb-os 2>/dev/null || true && \
+    ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
+    # Finishing up
+    if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
+    if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    ostree container commit
