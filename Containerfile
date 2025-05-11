@@ -14,11 +14,6 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 COPY system /
 
 # ==========================================
-# SECTION 1: BROWSER REPOSITORIES SETUP - REMOVED
-# ==========================================
-# Removing Microsoft Edge and Zen Browser repositories
-
-# ==========================================
 # SECTION 2: SYSTEM PACKAGE OVERRIDES
 # ==========================================
 # Override system packages with updates for better compatibility
@@ -102,6 +97,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add GNOME Extensions COPRs
+    curl -Lo /etc/yum.repos.d/_copr_zawertun-gnome-shell-extension-forge.repo \
+    https://copr.fedorainfracloud.org/coprs/zawertun/gnome-shell-extension-forge/repo/fedora-"${FEDORA_MAJOR_VERSION}"/zawertun-gnome-shell-extension-forge-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_zawertun-gnome-shell-extension-clipboard-history.repo \
+    https://copr.fedorainfracloud.org/coprs/zawertun/gnome-shell-extension-clipboard-history/repo/fedora-"${FEDORA_MAJOR_VERSION}"/zawertun-gnome-shell-extension-clipboard-history-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     # Install Firefox
     rpm-ostree install \
     firefox firefox-langpacks \
@@ -170,11 +170,21 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install GNOME Core
     rpm-ostree install \
     gnome-shell gnome-session gnome-terminal gnome-control-center \
     gnome-tweaks gnome-extensions-app gnome-shell-extension-appindicator \
-    gnome-backgrounds gnome-themes-extra gnome-shell-extension-dash-to-dock \
+    gnome-backgrounds gnome-themes-extra \
     gdm && \
+    # Install GNOME Extensions
+    rpm-ostree install \
+    gnome-shell-extension-dash-to-dock \
+    gnome-shell-extension-openbar \
+    gnome-shell-extension-search-light \
+    gnome-shell-extension-media-controls \
+    gnome-shell-extension-forge \
+    gnome-shell-extension-clipboard-history \
+    || true && \
     # Install gnome-software and gnome-disks
     rpm-ostree install \
     gnome-software \
@@ -182,7 +192,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gparted \
     gnome-keyring NetworkManager-tui \
     NetworkManager-openvpn && \
-    # Removed COSMIC packages removal
+    # Clean up
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -300,8 +310,8 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
     # Disable unnecessary repos
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    # Find and disable COPR repos except for essential ones
-    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
+    # Find and disable COPR repos except for GNOME extension related ones
+    find /etc/yum.repos.d/ -name '_copr_*.repo' -not -name '*gnome-shell-extension*' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
     # Disable other repositories for faster sync
     for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
     if [ -f "/etc/yum.repos.d/$repo" ]; then \
