@@ -97,6 +97,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Add Zen Browser COPR repository
+    curl -Lo /etc/yum.repos.d/_copr_fusion809-zen-browser.repo \
+    https://copr.fedorainfracloud.org/coprs/fusion809/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/fusion809-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -237,7 +240,20 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 11: FINAL CONFIGURATION
+# SECTION 11: ZEN BROWSER INSTALLATION
+# ==========================================
+# Install Zen Browser from COPR
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Install Zen Browser
+    rpm-ostree install zen-browser && \
+    # Verify the installation
+    rpm -q zen-browser || echo "Zen Browser not found" && \
+    # Clean up
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
