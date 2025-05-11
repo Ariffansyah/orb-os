@@ -165,11 +165,12 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install GNOME Core and dash-to-dock extension
+    # Install GNOME Core
     rpm-ostree install \
     gnome-shell gnome-session gnome-terminal gnome-control-center \
     gnome-tweaks gnome-extensions-app gnome-shell-extension-appindicator \
-    gnome-backgrounds gnome-themes-extra gnome-shell-extension-dash-to-dock \
+    gnome-backgrounds gnome-themes-extra \
+    gnome-shell-extension-dash-to-dock \
     gdm && \
     # Install gnome-software and gnome-disks
     rpm-ostree install \
@@ -257,91 +258,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 12.5: GNOME EXTENSIONS PREPARATION 
-# ==========================================
-# Create a setup script for installing GNOME extensions later
-RUN mkdir -p /usr/local/bin && \
-    mkdir -p /etc/skel/.config/autostart && \
-    cat > /usr/local/bin/install-gnome-extensions.sh << 'EOF'
-#!/bin/bash
-
-function install_extension() {
-local uuid="$1"
-local name="$2"
-echo "Installing $name..."
-
-# Check if the extension is already installed
-if gnome-extensions info "$uuid" &>/dev/null; then
-echo "$name is already installed"
-return 0
-fi
-
-# Create temporary directory
-local tempdir=$(mktemp -d)
-cd "$tempdir"
-
-# Get GNOME Shell version
-local shell_version=$(gnome-shell --version | awk '{print $3}')
-
-# Download the extension
-local url="https://extensions.gnome.org/download-extension/$uuid.shell-extension.zip?shell_version=$shell_version"
-wget -q "$url" -O extension.zip
-
-if [ -f extension.zip ]; then
-# Install the extension
-gnome-extensions install extension.zip
-echo "$name installed"
-else
-echo "Failed to download $name"
-fi
-
-# Clean up
-cd - >/dev/null
-rm -rf "$tempdir"
-}
-
-# Wait for GNOME to fully start
-sleep 10
-
-# Install extensions
-install_extension "openbar@neuromorph" "Open Bar"
-install_extension "vshell@reignerneos" "VShell"
-install_extension "astra-monitor@zopieux.com" "Astra Monitor"
-install_extension "search-light@icedman.github.com" "Search Light"
-install_extension "forge@jmmaranan.com" "Forge"
-install_extension "mediacontrols@cliffniff.github.com" "Media Control"
-install_extension "clipboard-history@mahyar-m" "Clipboard Manager"
-
-# Enable extensions
-gnome-extensions enable "openbar@neuromorph" || true
-gnome-extensions enable "vshell@reignerneos" || true
-gnome-extensions enable "astra-monitor@zopieux.com" || true
-gnome-extensions enable "search-light@icedman.github.com" || true
-gnome-extensions enable "forge@jmmaranan.com" || true
-gnome-extensions enable "mediacontrols@cliffniff.github.com" || true
-gnome-extensions enable "clipboard-history@mahyar-m" || true
-
-# Notify user
-notify-send "GNOME Extensions" "Extensions have been installed" || true
-
-# Remove this script from autostart
-rm -f "$HOME/.config/autostart/install-gnome-extensions.desktop"
-EOF
-
-# Create desktop autostart entry for extensions installation
-RUN cat > /etc/skel/.config/autostart/install-gnome-extensions.desktop << 'EOF'
-[Desktop Entry]
-Type=Application
-Name=Install GNOME Extensions
-Exec=/usr/local/bin/install-gnome-extensions.sh
-Terminal=false
-X-GNOME-Autostart-enabled=true
-EOF
-
-# Make script executable
-RUN chmod +x /usr/local/bin/install-gnome-extensions.sh
-
-# ==========================================
 # SECTION 13: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
@@ -379,8 +295,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf || true && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Install wget for extension script
-    rpm-ostree install wget || true && \
     # Disable unnecessary repos
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
     # Find and disable COPR repos except for essential ones
