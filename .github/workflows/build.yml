@@ -261,20 +261,20 @@ jobs:
         if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
         run: |
           echo "Pushing image with multiple tags (rechunk skipped)"
-    
-          # Use proper registry path with owner included
-          REGISTRY_PATH="${{ steps.registry_case.outputs.lowercase }}/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
-    
+  
+          # Set the correct registry path explicitly
+          REGISTRY_PATH="ghcr.io/${{ steps.owner_case.outputs.lowercase }}/${{ steps.image_case.outputs.lowercase }}"
+  
           # Tag and push latest
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest
           sudo podman push $REGISTRY_PATH:latest
           echo "Pushed $REGISTRY_PATH:latest"
-    
+  
           # Tag and push date-based tags
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:latest.${{ steps.date.outputs.datenum }}"
-    
+  
           sudo podman tag ${{ env.IMAGE_NAME }}:latest $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           sudo podman push $REGISTRY_PATH:${{ steps.date.outputs.datenum }}
           echo "Pushed $REGISTRY_PATH:${{ steps.date.outputs.datenum }}"
