@@ -181,9 +181,43 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
+# SECTION 8: HOMEBREW SETUP
+# ==========================================
+# Install Homebrew package manager
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    echo "Will install Homebrew inside /home/linuxbrew" && \
+    touch /.dockerenv && \
+    mkdir -p /var/home && \
+    mkdir -p /var/roothome && \
+    curl -Lo /tmp/brew-install https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh && \
+    chmod +x /tmp/brew-install && \
+    /tmp/brew-install && \
+    tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 9: PROGRAMMING LANGUAGES
+# ==========================================
+# Install programming languages and development tools
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install \
+    # JavaScript/Node.js
+    nodejs npm \
+    # Java
+    java-latest-openjdk \
+    # Go
+    golang \
+    # Python
+    python3 python3-pip python3-devel \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
 # SECTION 12.5: FLATPAK SETUP AND INSTALLATION
 # ==========================================
-# Setup Flatpak and install apps from flatpaks file
+# Setup Flatpak repositories and install apps from `flatpaks` file
 COPY flatpaks /tmp/flatpaks
 RUN set -e && \
     mkdir -p /etc/flatpak/remotes.d /var/tmp && \
