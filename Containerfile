@@ -248,11 +248,23 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Create OSTree remote configuration for proper updates
+    mkdir -p /etc/ostree/remotes.d && \
+    echo -e "[remote \"orb-os\"]\nurl=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os\ngpg-verify=false" > /etc/ostree/remotes.d/orb-os.conf && \
+    # Create directory for firstboot script
+    mkdir -p /usr/libexec/orb-os && \
+    # Create firstboot script to set proper origin
+    echo -e '#!/bin/bash\n\n# Set the correct origin for the current deployment\nrpm-ostree origin referrer set ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest\necho "Origin reference updated successfully"\n' > /usr/libexec/orb-os/firstboot.sh && \
+    chmod +x /usr/libexec/orb-os/firstboot.sh && \
+    # Create firstboot service
+    mkdir -p /usr/lib/systemd/system && \
+    echo -e '[Unit]\nDescription=Set correct origin for orb-os\nAfter=network-online.target\nWants=network-online.target\nConditionPathExists=!/var/lib/orb-os-firstboot-done\n\n[Service]\nType=oneshot\nExecStart=/usr/libexec/orb-os/firstboot.sh\nExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /usr/lib/systemd/system/orb-os-firstboot.service && \
     # Service management
     systemctl enable lactd || true && \
     systemctl enable gdm && \
     systemctl disable sddm || true && \
     systemctl disable cosmic-greeter || true && \
+    systemctl enable orb-os-firstboot.service && \
     systemctl set-default graphical.target && \
     systemctl enable brew-dir-fix.service && \
     systemctl enable brew-setup.service && \
@@ -279,12 +291,11 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Remove Flatpak Firefox installation
-    # The line below is removed:
-    # flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # flatpak install -y flathub org.mozilla.firefox || true && \
     # Re-enable the Zen Browser COPR repository
     sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
+    # Configure OSTree remote and origin
+    ostree remote delete orb-os 2>/dev/null || true && \
+    ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
     # Finishing up
     if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
     if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
