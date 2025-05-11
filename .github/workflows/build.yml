@@ -186,24 +186,23 @@ jobs:
         run: |
           echo "Applying rechunk to optimize image..."
     
-          # Using the rechunk tool directly from the container
-          sudo podman run --privileged --rm \
-          -v /var/lib/containers:/var/lib/containers \
-          ghcr.io/hhd-dev/rechunk:v1.1.2 \
-          ${{ env.IMAGE_NAME }}:latest ${{ env.IMAGE_NAME }}:rechunked
+          # Create a container from the rechunk image and store its ID
+          RECHUNK_CONTAINER=$(sudo podman create --name rechunk-container ghcr.io/hhd-dev/rechunk:v1.1.2)
+    
+          # Use the rechunk binary from inside the container
+          sudo podman cp rechunk-container:/usr/bin/rechunk /tmp/rechunk
+          sudo chmod +x /tmp/rechunk
+    
+          # Run the rechunk command on the image
+          sudo /tmp/rechunk --from ${{ env.IMAGE_NAME }}:latest --to ${{ env.IMAGE_NAME }}:rechunked
+    
+          # Clean up
+          sudo podman rm rechunk-container
     
           # Replace the original image with the rechunked one
           sudo podman rmi ${{ env.IMAGE_NAME }}:latest || true
           sudo podman tag ${{ env.IMAGE_NAME }}:rechunked ${{ env.IMAGE_NAME }}:latest
           echo "Rechunk completed successfully!"
-      
-      # Deleting unused images after build
-      - name: Remove auxiliary images
-        # We are tight on space, need at least 2x for OSTree
-        run: |
-          sudo podman image rm ${{ env.PULL_IMAGE_REGISTRY }}/${{ env.BASE_IMAGE_NAME }}/${{ env.BASE_IMAGE_FLAVOR }}:${{ env.FEDORA_VERSION }}
-          sudo podman image rm ${{ env.IMAGE_NAME }}:rechunked || true
-          sudo podman image rm ghcr.io/hhd-dev/rechunk:v1.1.2 || true
 
       # We're using certs from Universal Blue's repo to check the kernel signature.
       # https://github.com/ublue-os/kernel-cache
