@@ -14,7 +14,41 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 COPY system /
 
 # ==========================================
-# SECTION 1: SYSTEM PACKAGE OVERRIDES
+# SECTION 1: BROWSER REPOSITORIES SETUP
+# ==========================================
+# Add browser repositories early to ensure they're available for installation
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Add Microsoft Edge repository
+    echo "[microsoft-edge]" > /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "name=Microsoft Edge" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "baseurl=https://packages.microsoft.com/yumrepos/edge/" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    # Import Microsoft's GPG key
+    rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
+    # Add Zen Browser COPR repository
+    curl -Lo /etc/yum.repos.d/_copr_sneexy-zen-browser.repo \
+    https://copr.fedorainfracloud.org/coprs/sneexy/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sneexy-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Make sure the Zen Browser repo is enabled
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
+    # Update repo data
+    rpm-ostree refresh-md && \
+    # Install browsers right away to ensure they're installed
+    rpm-ostree install \
+    microsoft-edge-stable \
+    zen-browser \
+    || true && \
+    # Verify installations
+    echo "Microsoft Edge installation status:" && \
+    rpm -q microsoft-edge-stable || echo "Microsoft Edge not installed" && \
+    echo "Zen Browser installation status:" && \
+    rpm -q zen-browser || echo "Zen Browser not installed" && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 2: SYSTEM PACKAGE OVERRIDES
 # ==========================================
 # Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -88,7 +122,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 2: REPOSITORY SETUP
+# SECTION 3: REPOSITORY SETUP
 # ==========================================
 # Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -97,14 +131,18 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Add Zen Browser COPR repository
-    curl -Lo /etc/yum.repos.d/_copr_sneexy-zen-browser.repo \
-    https://copr.fedorainfracloud.org/coprs/sneexy/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sneexy-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    # Ensure both browser repos are still enabled
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
+    # Try to re-install browsers to ensure they're available
+    rpm-ostree install \
+    microsoft-edge-stable \
+    zen-browser \
+    || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 3: CORE UTILITIES
+# SECTION 4: CORE UTILITIES
 # ==========================================
 # Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -122,7 +160,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 4: PACKAGE REMOVALS
+# SECTION 5: PACKAGE REMOVALS
 # ==========================================
 # Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -136,32 +174,40 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 5: DEVELOPER TOOLS & UTILITIES
+# SECTION 6: DEVELOPER TOOLS & UTILITIES
 # ==========================================
 # Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Ensure the Zen Browser COPR repo is still enabled
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
     rpm-ostree install \
     # Productivity tools
-    git fzf zoxide eza \
+    git fzf zoxide \
     btop fastfetch \
     # System utilities
-    discover-overlay cpulimit tailscale lact \
+    cpulimit \
     unzip \
     # Shells and terminal enhancers
     vim zsh starship zsh-autosuggestions \
     ghostty ptyxis tmux \
     # Fonts
-    cascadia-code-nf-fonts cascadia-mono-nf-fonts nerd-fonts \
+    cascadia-code-nf-fonts cascadia-mono-nf-fonts \
     # Editors
     neovim \
-    # Install Zen Browser from COPR
+    # Re-attempt browser installations
+    microsoft-edge-stable \
     zen-browser \
     || true && \
+    # Verify browser installations
+    echo "Microsoft Edge installation status:" && \
+    rpm -q microsoft-edge-stable || echo "Microsoft Edge not installed" && \
+    echo "Zen Browser installation status:" && \
+    rpm -q zen-browser || echo "Zen Browser not installed" && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 6: DESKTOP ENVIRONMENT
+# SECTION 7: DESKTOP ENVIRONMENT
 # ==========================================
 # Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -184,7 +230,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 7: HOMEBREW SETUP
+# SECTION 8: HOMEBREW SETUP
 # ==========================================
 # Install Homebrew package manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -200,7 +246,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 8: PROGRAMMING LANGUAGES
+# SECTION 9: PROGRAMMING LANGUAGES
 # ==========================================
 # Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -218,7 +264,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 9: FASTFETCH SETUP
+# SECTION 10: FASTFETCH SETUP
 # ==========================================
 # Ensure fastfetch is properly installed and configured
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -228,7 +274,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 10: NEOVIM INSTALLATION
+# SECTION 11: NEOVIM INSTALLATION
 # ==========================================
 # Ensure neovim is properly installed
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -242,7 +288,34 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 11: FINAL CONFIGURATION
+# SECTION 12: FINAL BROWSER INSTALLATION
+# ==========================================
+# Make a final attempt to install browsers
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Add Microsoft Edge repository (in case it was overwritten)
+    echo "[microsoft-edge]" > /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "name=Microsoft Edge" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "baseurl=https://packages.microsoft.com/yumrepos/edge/" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "enabled=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "gpgcheck=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" >> /etc/yum.repos.d/microsoft-edge.repo && \
+    # Make sure the Zen Browser COPR repo is enabled
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
+    # Refresh repository metadata
+    rpm-ostree refresh-md && \
+    # Install Microsoft Edge
+    rpm-ostree install microsoft-edge-stable || echo "Failed to install Microsoft Edge" && \
+    # Install Zen Browser
+    rpm-ostree install zen-browser || echo "Failed to install Zen Browser" && \
+    # Verify installations
+    rpm -q microsoft-edge-stable || echo "Microsoft Edge not installed" && \
+    rpm -q zen-browser || echo "Zen Browser not installed" && \
+    # Clean up
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 13: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
@@ -266,33 +339,35 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl disable cosmic-greeter || true && \
     systemctl enable orb-os-firstboot.service && \
     systemctl set-default graphical.target && \
-    systemctl enable brew-dir-fix.service && \
-    systemctl enable brew-setup.service && \
-    systemctl disable brew-upgrade.timer && \
-    systemctl disable brew-update.timer && \
+    systemctl enable brew-dir-fix.service || true && \
+    systemctl enable brew-setup.service || true && \
+    systemctl disable brew-upgrade.timer || true && \
+    systemctl disable brew-update.timer || true && \
     systemctl disable waydroid-container.service || true && \
     systemctl --global enable podman.socket && \
     # Add configuration files and utilities
-    curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf && \
+    curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf || true && \
     curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh || true && \
     chmod +x /usr/bin/waydroid-choose-gpu || true && \
-    curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf && \
+    curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf || true && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Disable COPR repositories to speed up syncing
+    # DON'T disable browser-related repos during cleanup
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
+    # Find and disable COPR repos except for Zen Browser
+    find /etc/yum.repos.d/ -name '_copr_*.repo' -not -name '_copr_sneexy-zen-browser.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
+    # Make sure browser repos stay enabled
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo || true && \
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/microsoft-edge.repo || true && \
     # Disable other repositories for faster sync
     for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
     if [ -f "/etc/yum.repos.d/$repo" ]; then \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
     fi \
-    done && \
+    done || true && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
-    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Re-enable the Zen Browser COPR repository
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
+    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo || true && \
     # Configure OSTree remote and origin
     ostree remote delete orb-os 2>/dev/null || true && \
     ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
