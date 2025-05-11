@@ -14,41 +14,7 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 COPY system /
 
 # ==========================================
-# SECTION 1: BROWSER REPOSITORIES SETUP
-# ==========================================
-# Add browser repositories early to ensure they're available for installation
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Add Microsoft Edge repository
-    echo "[microsoft-edge]" > /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "name=Microsoft Edge" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "baseurl=https://packages.microsoft.com/yumrepos/edge/" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "enabled=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "gpgcheck=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    # Import Microsoft's GPG key
-    rpm --import https://packages.microsoft.com/keys/microsoft.asc && \
-    # Add Zen Browser COPR repository
-    curl -Lo /etc/yum.repos.d/_copr_sneexy-zen-browser.repo \
-    https://copr.fedorainfracloud.org/coprs/sneexy/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sneexy-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Make sure the Zen Browser repo is enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
-    # Update repo data
-    rpm-ostree refresh-md && \
-    # Install browsers right away to ensure they're installed
-    rpm-ostree install \
-    microsoft-edge-stable \
-    zen-browser \
-    || true && \
-    # Verify installations
-    echo "Microsoft Edge installation status:" && \
-    rpm -q microsoft-edge-stable || echo "Microsoft Edge not installed" && \
-    echo "Zen Browser installation status:" && \
-    rpm -q zen-browser || echo "Zen Browser not installed" && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 2: SYSTEM PACKAGE OVERRIDES
+# SECTION 1: SYSTEM PACKAGE OVERRIDES
 # ==========================================
 # Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -122,7 +88,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 3: REPOSITORY SETUP
+# SECTION 2: REPOSITORY SETUP
 # ==========================================
 # Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -131,18 +97,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Ensure both browser repos are still enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
-    # Try to re-install browsers to ensure they're available
-    rpm-ostree install \
-    microsoft-edge-stable \
-    zen-browser \
-    || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 4: CORE UTILITIES
+# SECTION 3: CORE UTILITIES
 # ==========================================
 # Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -160,13 +119,25 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
+# SECTION 4: BROWSER SETUP
+# ==========================================
+# Install Firefox as the default browser for Fedora GNOME
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Make sure we don't remove Firefox
+    rpm-ostree install \
+    firefox \
+    firefox-langpacks \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
 # SECTION 5: PACKAGE REMOVALS
 # ==========================================
-# Remove unwanted packages
+# Remove unwanted packages, but keep Firefox
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
     ublue-os-update-services \
-    firefox firefox-langpacks \
     htop \
     nvtop \
     || true && \
@@ -178,8 +149,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Ensure the Zen Browser COPR repo is still enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
     rpm-ostree install \
     # Productivity tools
     git fzf zoxide \
@@ -194,15 +163,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cascadia-code-nf-fonts cascadia-mono-nf-fonts \
     # Editors
     neovim \
-    # Re-attempt browser installations
-    microsoft-edge-stable \
-    zen-browser \
     || true && \
-    # Verify browser installations
-    echo "Microsoft Edge installation status:" && \
-    rpm -q microsoft-edge-stable || echo "Microsoft Edge not installed" && \
-    echo "Zen Browser installation status:" && \
-    rpm -q zen-browser || echo "Zen Browser not installed" && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
@@ -288,34 +249,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 12: FINAL BROWSER INSTALLATION
-# ==========================================
-# Make a final attempt to install browsers
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Add Microsoft Edge repository (in case it was overwritten)
-    echo "[microsoft-edge]" > /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "name=Microsoft Edge" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "baseurl=https://packages.microsoft.com/yumrepos/edge/" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "enabled=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "gpgcheck=1" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    echo "gpgkey=https://packages.microsoft.com/keys/microsoft.asc" >> /etc/yum.repos.d/microsoft-edge.repo && \
-    # Make sure the Zen Browser COPR repo is enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
-    # Refresh repository metadata
-    rpm-ostree refresh-md && \
-    # Install Microsoft Edge
-    rpm-ostree install microsoft-edge-stable || echo "Failed to install Microsoft Edge" && \
-    # Install Zen Browser
-    rpm-ostree install zen-browser || echo "Failed to install Zen Browser" && \
-    # Verify installations
-    rpm -q microsoft-edge-stable || echo "Microsoft Edge not installed" && \
-    rpm -q zen-browser || echo "Zen Browser not installed" && \
-    # Clean up
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
-# ==========================================
-# SECTION 13: FINAL CONFIGURATION
+# SECTION 12: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
@@ -352,13 +286,9 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf || true && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # DON'T disable browser-related repos during cleanup
+    # Disable COPR repositories to speed up syncing
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
-    # Find and disable COPR repos except for Zen Browser
-    find /etc/yum.repos.d/ -name '_copr_*.repo' -not -name '_copr_sneexy-zen-browser.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
-    # Make sure browser repos stay enabled
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo || true && \
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/microsoft-edge.repo || true && \
+    find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
     # Disable other repositories for faster sync
     for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
     if [ -f "/etc/yum.repos.d/$repo" ]; then \
@@ -371,6 +301,19 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Configure OSTree remote and origin
     ostree remote delete orb-os 2>/dev/null || true && \
     ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
+    # Make Firefox the default browser
+    mkdir -p /usr/local/share/applications && \
+    echo "[Default Applications]" > /usr/local/share/applications/mimeapps.list && \
+    echo "x-scheme-handler/http=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "x-scheme-handler/https=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "x-scheme-handler/chrome=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "text/html=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "application/x-extension-htm=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "application/x-extension-html=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "application/x-extension-shtml=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "application/xhtml+xml=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "application/x-extension-xhtml=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
+    echo "application/x-extension-xht=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
     # Finishing up
     if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
     if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
