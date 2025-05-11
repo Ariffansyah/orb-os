@@ -249,45 +249,80 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 12: FINAL CONFIGURATION
+# SECTION 12A: OSTREE REMOTE CONFIGURATION
 # ==========================================
-# Copy override files and configure the system
-COPY override /
-
+# Split the final configuration into smaller parts
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Create OSTree remote configuration for proper updates
     mkdir -p /etc/ostree/remotes.d && \
-    echo -e "[remote \"orb-os\"]\nurl=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os\ngpg-verify=false" > /etc/ostree/remotes.d/orb-os.conf && \
-    # Create directory for firstboot script
-    mkdir -p /usr/libexec/orb-os && \
-    # Create firstboot script to set proper origin
-    echo -e '#!/bin/bash\n\n# Set the correct origin for the current deployment\nrpm-ostree origin referrer set ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest\necho "Origin reference updated successfully"\n' > /usr/libexec/orb-os/firstboot.sh && \
+    echo '[remote "orb-os"]' > /etc/ostree/remotes.d/orb-os.conf && \
+    echo "url=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os" >> /etc/ostree/remotes.d/orb-os.conf && \
+    echo "gpg-verify=false" >> /etc/ostree/remotes.d/orb-os.conf && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12B: FIRSTBOOT SCRIPT
+# ==========================================
+RUN mkdir -p /usr/libexec/orb-os && \
+    echo '#!/bin/bash' > /usr/libexec/orb-os/firstboot.sh && \
+    echo '' >> /usr/libexec/orb-os/firstboot.sh && \
+    echo '# Set the correct origin for the current deployment' >> /usr/libexec/orb-os/firstboot.sh && \
+    echo 'rpm-ostree origin referrer set ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest' >> /usr/libexec/orb-os/firstboot.sh && \
+    echo 'echo "Origin reference updated successfully"' >> /usr/libexec/orb-os/firstboot.sh && \
     chmod +x /usr/libexec/orb-os/firstboot.sh && \
-    # Create firstboot service
-    mkdir -p /usr/lib/systemd/system && \
-    echo -e '[Unit]\nDescription=Set correct origin for orb-os\nAfter=network-online.target\nWants=network-online.target\nConditionPathExists=!/var/lib/orb-os-firstboot-done\n\n[Service]\nType=oneshot\nExecStart=/usr/libexec/orb-os/firstboot.sh\nExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /usr/lib/systemd/system/orb-os-firstboot.service && \
-    # Service management
-    systemctl enable lactd || true && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12C: SYSTEMD SERVICE
+# ==========================================
+RUN mkdir -p /usr/lib/systemd/system && \
+    echo '[Unit]' > /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'Description=Set correct origin for orb-os' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'After=network-online.target' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'Wants=network-online.target' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'ConditionPathExists=!/var/lib/orb-os-firstboot-done' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo '' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo '[Service]' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'Type=oneshot' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'ExecStart=/usr/libexec/orb-os/firstboot.sh' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'ExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'RemainAfterExit=yes' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo '' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo '[Install]' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    echo 'WantedBy=multi-user.target' >> /usr/lib/systemd/system/orb-os-firstboot.service && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12D: SERVICE CONFIGURATION
+# ==========================================
+RUN systemctl enable orb-os-firstboot.service && \
     systemctl enable gdm && \
     systemctl disable sddm || true && \
     systemctl disable cosmic-greeter || true && \
-    systemctl enable orb-os-firstboot.service && \
     systemctl set-default graphical.target && \
     systemctl enable brew-dir-fix.service || true && \
     systemctl enable brew-setup.service || true && \
     systemctl disable brew-upgrade.timer || true && \
     systemctl disable brew-update.timer || true && \
     systemctl disable waydroid-container.service || true && \
-    systemctl --global enable podman.socket && \
-    # Add configuration files and utilities
-    curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf || true && \
+    systemctl --global enable podman.socket || true && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12E: ADDITIONAL UTILITIES
+# ==========================================
+RUN curl -Lo /etc/dxvk-example.conf https://raw.githubusercontent.com/doitsujin/dxvk/master/dxvk.conf || true && \
     curl -Lo /usr/bin/waydroid-choose-gpu https://raw.githubusercontent.com/KyleGospo/waydroid-scripts/main/waydroid-choose-gpu.sh || true && \
     chmod +x /usr/bin/waydroid-choose-gpu || true && \
     curl -Lo /usr/lib/sysctl.d/99-bore-scheduler.conf https://github.com/CachyOS/CachyOS-Settings/raw/master/usr/lib/sysctl.d/99-bore-scheduler.conf || true && \
     curl -Lo /etc/distrobox/docker.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/distrobox.ini || true && \
     curl -Lo /etc/distrobox/incus.ini https://github.com/ublue-os/toolboxes/raw/refs/heads/main/apps/docker/incus.ini || true && \
-    # Disable COPR repositories to speed up syncing
-    sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12F: REPO MANAGEMENT & FLATPAK
+# ==========================================
+RUN sed -i 's/stage/none/g' /etc/rpm-ostreed.conf || true && \
     find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; || true && \
     # Disable other repositories for faster sync
     for repo in tailscale.repo charm.repo negativo17-fedora-multimedia.repo negativo17-fedora-steam.repo negativo17-fedora-rar.repo; do \
@@ -298,25 +333,36 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo || true && \
-    # Configure OSTree remote and origin
-    ostree remote delete orb-os 2>/dev/null || true && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12G: FIREFOX DEFAULT BROWSER SETUP
+# ==========================================
+RUN mkdir -p /usr/local/share/applications && \
+    echo '[Default Applications]' > /usr/local/share/applications/mimeapps.list && \
+    echo 'x-scheme-handler/http=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'x-scheme-handler/https=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'x-scheme-handler/chrome=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'text/html=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'application/x-extension-htm=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'application/x-extension-html=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'application/x-extension-shtml=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'application/xhtml+xml=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'application/x-extension-xhtml=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    echo 'application/x-extension-xht=firefox.desktop' >> /usr/local/share/applications/mimeapps.list && \
+    ostree container commit
+
+# ==========================================
+# SECTION 12H: OSTREE CONFIGURATION & FINALIZATION
+# ==========================================
+RUN ostree remote delete orb-os 2>/dev/null || true && \
     ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
-    # Make Firefox the default browser
-    mkdir -p /usr/local/share/applications && \
-    echo "[Default Applications]" > /usr/local/share/applications/mimeapps.list && \
-    echo "x-scheme-handler/http=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "x-scheme-handler/https=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "x-scheme-handler/chrome=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "text/html=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "application/x-extension-htm=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "application/x-extension-html=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "application/x-extension-shtml=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "application/xhtml+xml=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "application/x-extension-xhtml=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
-    echo "application/x-extension-xht=firefox.desktop" >> /usr/local/share/applications/mimeapps.list && \
     # Finishing up
     if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
     if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
     /usr/libexec/containerbuild/cleanup.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
+
+# Copy override files at the end
+COPY override /
