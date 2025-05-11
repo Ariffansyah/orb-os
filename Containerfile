@@ -14,7 +14,81 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 COPY system /
 
 # ==========================================
-# SECTION 1: REPOSITORY SETUP
+# SECTION 1: SYSTEM PACKAGE OVERRIDES
+# ==========================================
+# Override system packages with updates for better compatibility
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    # Base system overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=fedora \
+    libusb1 \
+    || true && \
+    # Graphics and display overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    vulkan-loader \
+    libdrm \
+    libdecor \
+    atk \
+    at-spi2-atk \
+    libX11 libX11-common libX11-xcb \
+    libinput \
+    || true && \
+    # Media and codec overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    alsa-lib \
+    gstreamer1 gstreamer1-plugins-base \
+    libaom \
+    libopenmpt \
+    libv4l \
+    || true && \
+    # System library overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    gnutls \
+    glib2 \
+    nspr \
+    nss nss-softokn nss-softokn-freebl nss-sysinit nss-util \
+    libtirpc \
+    libuuid \
+    libblkid \
+    libmount \
+    cups-libs \
+    llvm-libs \
+    zlib-ng-compat \
+    fontconfig \
+    pciutils-libs \
+    || true && \
+    # Compiler and runtime libraries
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    cpp libatomic libgcc libgfortran libgomp libobjc libstdc++ \
+    elfutils-libelf elfutils-libs \
+    || true && \
+    # Core system overrides
+    rpm-ostree override replace \
+    --experimental \
+    --from repo=updates \
+    glibc glibc-common glibc-all-langpacks glibc-gconv-extra \
+    libxcrypt \
+    SDL2 \
+    || true && \
+    # Remove unnecessary packages
+    rpm-ostree override remove \
+    glibc32 \
+    nvtop \
+    || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+# ==========================================
+# SECTION 2: REPOSITORY SETUP
 # ==========================================
 # Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -23,38 +97,46 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
-    # Add Zen Browser COPR repository - for Fedora 42
-    curl -Lo /etc/yum.repos.d/_copr_fusion809-zen-browser.repo \
-    https://copr.fedorainfracloud.org/coprs/fusion809/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/fusion809-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo || echo "Unable to add Zen Browser repo" && \
+    # Add Zen Browser COPR repository
+    curl -Lo /etc/yum.repos.d/_copr_sneexy-zen-browser.repo \
+    https://copr.fedorainfracloud.org/coprs/sneexy/zen-browser/repo/fedora-"${FEDORA_MAJOR_VERSION}"/sneexy-zen-browser-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 2: CORE UTILITIES
+# SECTION 3: CORE UTILITIES
 # ==========================================
 # Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    git vim zsh starship tmux ghostty ptyxis nautilus postgresql \
+    # Terminal utilities
+    git vim zsh starship tmux \
+    # Terminal emulators
+    ghostty ptyxis \
+    # File manager
+    nautilus \
+    # PostgreSQL CLI tools
+    postgresql \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 3: PACKAGE REMOVALS
+# SECTION 4: PACKAGE REMOVALS
 # ==========================================
 # Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree override remove \
     ublue-os-update-services \
     firefox firefox-langpacks \
-    htop nvtop \
+    htop \
+    nvtop \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 4: DEVELOPER TOOLS & UTILITIES
+# SECTION 5: DEVELOPER TOOLS & UTILITIES
 # ==========================================
 # Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -72,12 +154,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cascadia-code-nf-fonts cascadia-mono-nf-fonts nerd-fonts \
     # Editors
     neovim \
+    # Install Zen Browser from COPR
+    zen-browser \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 5: DESKTOP ENVIRONMENT
+# SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
 # Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -85,9 +169,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-shell gnome-session gnome-terminal gnome-control-center \
     gnome-tweaks gnome-extensions-app gnome-shell-extension-appindicator \
     gnome-backgrounds gnome-themes-extra gnome-shell-extension-dash-to-dock \
-    gdm gnome-software gnome-disk-utility gparted \
-    gnome-keyring NetworkManager-tui NetworkManager-openvpn \
-    || true && \
+    gdm && \
+    # Install gnome-software and gnome-disks
+    rpm-ostree install \
+    gnome-software \
+    gnome-disk-utility \
+    gparted \
+    gnome-keyring NetworkManager-tui \
+    NetworkManager-openvpn && \
     # Remove any COSMIC packages if they exist
     rpm-ostree remove \
     cosmic-desktop cosmic-greeter cosmic-store || true && \
@@ -95,7 +184,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 6: HOMEBREW SETUP
+# SECTION 7: HOMEBREW SETUP
 # ==========================================
 # Install Homebrew package manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -111,47 +200,49 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 7: PROGRAMMING LANGUAGES
+# SECTION 8: PROGRAMMING LANGUAGES
 # ==========================================
 # Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    nodejs npm java-latest-openjdk golang python3 python3-pip python3-devel \
+    # JavaScript/Node.js
+    nodejs npm \
+    # Java
+    java-latest-openjdk \
+    # Go
+    golang \
+    # Python
+    python3 python3-pip python3-devel \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 8: FASTFETCH AND NEOVIM
+# SECTION 9: FASTFETCH SETUP
 # ==========================================
-# Ensure fastfetch and neovim are properly installed
+# Ensure fastfetch is properly installed and configured
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install fastfetch neovim && \
+    # Install fastfetch
+    rpm-ostree install fastfetch && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 9: ZEN BROWSER INSTALLATION
+# SECTION 10: NEOVIM INSTALLATION
 # ==========================================
-# Install Zen Browser from COPR
+# Ensure neovim is properly installed
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Enable the Zen Browser COPR repository
-    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_fusion809-zen-browser.repo || true && \
-    # Install Zen Browser
-    rpm-ostree install zen-browser || echo "Failed to install zen-browser from COPR" && \
-    # If that fails, try to download and install directly from URL
-    if ! rpm -q zen-browser &>/dev/null; then \
-    echo "Attempting alternative installation method for Zen Browser..." && \
-    rpm-ostree install \
-    https://download.copr.fedorainfracloud.org/results/fusion809/zen-browser/fedora-42-x86_64/06435571-zen-browser/zen-browser-0.5.4-1.fc42.x86_64.rpm \
-    || echo "Failed to install Zen Browser from direct URL"; \
-    fi && \
+    # Install neovim specifically
+    rpm-ostree install neovim && \
+    # Verify the installation
+    rpm -q neovim && \
+    which nvim || echo "Neovim not found in PATH" && \
     # Clean up
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
-# SECTION 10: FINAL CONFIGURATION
+# SECTION 11: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
@@ -188,6 +279,12 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Setup Flatpak
     mkdir -p /etc/flatpak/remotes.d && \
     curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # Remove Flatpak Firefox installation
+    # The line below is removed:
+    # flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    # flatpak install -y flathub org.mozilla.firefox || true && \
+    # Re-enable the Zen Browser COPR repository
+    sed -i 's@enabled=0@enabled=1@g' /etc/yum.repos.d/_copr_sneexy-zen-browser.repo && \
     # Finishing up
     if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
     if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
