@@ -258,6 +258,17 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
+# SECTION 12.5: FLATPAK SETUP AND INSTALLATION
+# ==========================================
+# Setup Flatpak and install apps from flatpaks file
+COPY flatpaks /tmp/flatpaks
+RUN mkdir -p /etc/flatpak/remotes.d && \
+    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
+    xargs -a /tmp/flatpaks flatpak install --noninteractive flathub && \
+    rm -f /tmp/flatpaks
+
+# ==========================================
 # SECTION 13: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
@@ -305,9 +316,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
     fi \
     done || true && \
-    # Setup Flatpak
-    mkdir -p /etc/flatpak/remotes.d && \
-    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo || true && \
     # Configure OSTree remote and origin
     ostree remote delete orb-os 2>/dev/null || true && \
     ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
