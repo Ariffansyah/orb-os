@@ -14,7 +14,7 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 COPY system /
 
 # ==========================================
-# SECTION 2: SYSTEM PACKAGE OVERRIDES
+# SECTION 1: SYSTEM PACKAGE OVERRIDES
 # ==========================================
 # Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -87,7 +87,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 3: REPOSITORY SETUP
+# SECTION 2: REPOSITORY SETUP
 # ==========================================
 # Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -102,7 +102,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 4: CORE UTILITIES
+# SECTION 3: CORE UTILITIES
 # ==========================================
 # Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -120,7 +120,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 5: PACKAGE REMOVALS
+# SECTION 4: PACKAGE REMOVALS
 # ==========================================
 # Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -133,7 +133,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 6: DEVELOPER TOOLS & UTILITIES
+# SECTION 5: DEVELOPER TOOLS & UTILITIES
 # ==========================================
 # Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -158,7 +158,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 7: DESKTOP ENVIRONMENT
+# SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
 # Install GNOME desktop environment and utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -181,7 +181,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 8: HOMEBREW SETUP
+# SECTION 7: HOMEBREW SETUP
 # ==========================================
 # Install Homebrew package manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -197,7 +197,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 9: PROGRAMMING LANGUAGES
+# SECTION 8: PROGRAMMING LANGUAGES
 # ==========================================
 # Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -215,28 +215,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 # ==========================================
-# SECTION 12.5: FLATPAK SETUP AND INSTALLATION
-# ==========================================
-# Setup Flatpak repositories and install apps from `flatpaks` file
-COPY flatpaks /tmp/flatpaks
-RUN set -e && \
-    mkdir -p /etc/flatpak/remotes.d /var/tmp && \
-    chmod 1777 /var/tmp && \
-    # Add Flathub repository
-    curl -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo && \
-    # Install flatpaks from the list
-    while IFS= read -r package; do \
-    if [ -n "$package" ]; then \
-    echo "Installing $package..." && \
-    flatpak install --noninteractive flathub "$package" || echo "Failed to install $package, continuing..."; \
-    fi; \
-    done < /tmp/flatpaks && \
-    # Clean up
-    rm -f /tmp/flatpaks
-
-# ==========================================
-# SECTION 13: FINAL CONFIGURATION
+# SECTION 9: FINAL CONFIGURATION
 # ==========================================
 # Copy override files and configure the system
 COPY override /
