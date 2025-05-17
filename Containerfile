@@ -188,20 +188,23 @@ RUN rpm-ostree install unzip wget curl && \
     /usr/libexec/containerbuild/cleanup.sh
 
 
+
 RUN set -e; \
     EXT_DIR="/usr/share/gnome-shell/extensions"; \
-    for UUID in \
-    GrandTheftFocus@zalckos.github.com \
-    v-shell@v-shell.github.com \
-    astra-monitor@astra-monitor.github.io \
-    Forge@jmmaranan.gmail.com \
-    mediacontrols@cliffniff.github.com \
-    ; do \
-    SAFE_UUID=$(echo "$UUID" | tr -d '@' | tr '[:upper:]' '[:lower:]'); \
-    ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$SAFE_UUID" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${SAFE_UUID}[^\"']*\.zip" | head -1); \
-    if [ -z "$ZIP_URL" ]; then echo "Failed to find ZIP for $UUID"; exit 1; fi; \
-    wget -O /tmp/$SAFE_UUID.zip "$ZIP_URL"; \
-    unzip /tmp/$SAFE_UUID.zip -d $EXT_DIR/$UUID; \
+    GNOME_VER=45; \
+    declare -A EXT_IDS=( \
+    [grand-theft-focus@zalckos.github.com]=5410 \
+    [vertical-workspaces@thibaultmol.github.com]=5177 \
+    [astra-monitor@astra-monitor.github.io]=6682 \
+    [Forge@jmmaranan.gmail.com]=4481 \
+    [mediacontrols@cliffniff.github.com]=4470 \
+    ); \
+    for UUID in "${!EXT_IDS[@]}"; do \
+    ID=${EXT_IDS[$UUID]}; \
+    ZIP_PATH=$(curl -s "https://extensions.gnome.org/extension-info/?pk=$ID&shell_version=$GNOME_VER" | grep -oP '"download_url":\s*"\K[^"]+'); \
+    if [ -z "$ZIP_PATH" ]; then echo "Failed to find ZIP for $UUID (ID $ID)"; exit 1; fi; \
+    wget -O "/tmp/$ID.zip" "https://extensions.gnome.org$ZIP_PATH"; \
+    unzip "/tmp/$ID.zip" -d "$EXT_DIR/$UUID"; \
     done && rm /tmp/*.zip
 
 # Enable GNOME extensions (may require user session or a firstboot script)
