@@ -190,17 +190,17 @@ RUN rpm-ostree install unzip wget curl && \
 RUN set -e; \
     EXT_DIR="/usr/share/gnome-shell/extensions"; \
     for UUID in \
-    openbar@marcinjakubowski.github.com \
+    GrandTheftFocus@zalckos.github.com \
     v-shell@v-shell.github.com \
     astra-monitor@astra-monitor.github.io \
     Forge@jmmaranan.gmail.com \
     mediacontrols@cliffniff.github.com \
     ; do \
-    NAME=$(echo $UUID | cut -d'@' -f1 | tr 'A-Z' 'a-z'); \
-    ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$NAME" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${NAME}[^\"']*\.zip" | head -1); \
+    SAFE_UUID=$(echo "$UUID" | tr -d '@'); \
+    ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$SAFE_UUID" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${SAFE_UUID}[^\"']*\.zip" | head -1); \
     if [ -z "$ZIP_URL" ]; then echo "Failed to find ZIP for $UUID"; exit 1; fi; \
-    wget -O /tmp/$NAME.zip "$ZIP_URL"; \
-    unzip /tmp/$NAME.zip -d $EXT_DIR/$UUID; \
+    wget -O /tmp/$SAFE_UUID.zip "$ZIP_URL"; \
+    unzip /tmp/$SAFE_UUID.zip -d $EXT_DIR/$UUID; \
     done && rm /tmp/*.zip
 
 # Enable GNOME extensions (may require user session or a firstboot script)
