@@ -161,7 +161,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
-# Install GNOME desktop environment and utilities, and packaged extensions
+# Install GNOME desktop environment and utilities, and only RPM-packaged extensions
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     gnome-shell \
@@ -181,16 +181,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-keyring \
     NetworkManager-tui \
     NetworkManager-openvpn \
-    # packaged extension: Media Controls, if available
-    gnome-shell-extension-media-controls \
     && /usr/libexec/containerbuild/cleanup.sh \
     && ostree container commit
 
-# Install required tools for manual extension install
+# Install required tools
 RUN rpm-ostree install unzip wget curl && \
     /usr/libexec/containerbuild/cleanup.sh
 
-# Download and install only extensions NOT available as RPMs (Open Bar, VSHell, Astra Monitor, Forge)
+# Download and install GNOME Shell Extensions NOT available as RPMs
 RUN set -e; \
     EXT_DIR="/usr/share/gnome-shell/extensions"; \
     for UUID in \
@@ -198,6 +196,7 @@ RUN set -e; \
     vshell@v-shell.github.com \
     astramonitor@astra-monitor.github.io \
     forge@jmmaranan.gmail.com \
+    mediacontrols@cliffniff.github.com \
     ; do \
     NAME=$(echo $UUID | cut -d'@' -f1); \
     ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$NAME" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${NAME}[^\"']*\.zip" | head -1); \
@@ -206,8 +205,7 @@ RUN set -e; \
     unzip /tmp/$NAME.zip -d $EXT_DIR/$UUID; \
     done && rm /tmp/*.zip
 
-# Enable GNOME extensions (gdm session, so enable via dconf or firstboot script in real deployments)
-# For direct scripting, may require a user session; here, just for documentary purposes:
+# Enable GNOME extensions (may require user session or a firstboot script)
 RUN gnome-extensions enable dash-to-dock@micxgx.gmail.com || true && \
     gnome-extensions enable mediacontrols@cliffniff.github.com || true && \
     gnome-extensions enable openbar@xyz.ez.gmail.com || true && \
