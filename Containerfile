@@ -187,6 +187,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN rpm-ostree install unzip wget curl && \
     /usr/libexec/containerbuild/cleanup.sh
 
+
 RUN set -e; \
     EXT_DIR="/usr/share/gnome-shell/extensions"; \
     for UUID in \
@@ -196,7 +197,7 @@ RUN set -e; \
     Forge@jmmaranan.gmail.com \
     mediacontrols@cliffniff.github.com \
     ; do \
-    SAFE_UUID=$(echo "$UUID" | tr -d '@'); \
+    SAFE_UUID=$(echo "$UUID" | tr -d '@' | tr '[:upper:]' '[:lower:]'); \
     ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$SAFE_UUID" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${SAFE_UUID}[^\"']*\.zip" | head -1); \
     if [ -z "$ZIP_URL" ]; then echo "Failed to find ZIP for $UUID"; exit 1; fi; \
     wget -O /tmp/$SAFE_UUID.zip "$ZIP_URL"; \
