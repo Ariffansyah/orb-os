@@ -157,63 +157,63 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
+
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
-# Install GNOME desktop environment and utilities
+# Install GNOME desktop environment and utilities, and packaged extensions
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    # Install GNOME Core
     rpm-ostree install \
-    gnome-shell gnome-session gnome-terminal gnome-control-center \
-    gnome-tweaks gnome-extensions-app gnome-shell-extension-appindicator \
-    gnome-backgrounds gnome-themes-extra \
+    gnome-shell \
+    gnome-session \
+    gnome-terminal \
+    gnome-control-center \
+    gnome-tweaks \
+    gnome-extensions-app \
+    gnome-shell-extension-appindicator \
+    gnome-backgrounds \
+    gnome-themes-extra \
     gnome-shell-extension-dash-to-dock \
-    gdm && \
-    # Install gnome-software and gnome-disks
-    rpm-ostree install \
+    gdm \
     gnome-software \
     gnome-disk-utility \
     gparted \
-    gnome-keyring NetworkManager-tui \
-    NetworkManager-openvpn && \
-    # Clean up
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
+    gnome-keyring \
+    NetworkManager-tui \
+    NetworkManager-openvpn \
+    # packaged extension: Media Controls, if available
+    gnome-shell-extension-media-controls \
+    && /usr/libexec/containerbuild/cleanup.sh \
+    && ostree container commit
 
-# Install required tools
-RUN rpm-ostree install unzip wget && \
+# Install required tools for manual extension install
+RUN rpm-ostree install unzip wget curl && \
     /usr/libexec/containerbuild/cleanup.sh
 
-# Download and install GNOME Shell Extensions
+# Download and install only extensions NOT available as RPMs (Open Bar, VSHell, Astra Monitor, Forge)
 RUN set -e; \
     EXT_DIR="/usr/share/gnome-shell/extensions"; \
-    # Dash to Dock
-    wget -O /tmp/dash-to-dock.zip https://extensions.gnome.org/extension-data/dash-to-dockmicxgx.gmail.com.v83.shell-extension.zip && \
-    unzip /tmp/dash-to-dock.zip -d $EXT_DIR/dash-to-dock@micxgx.gmail.com && \
-    # Open Bar
-    wget -O /tmp/open-bar.zip https://extensions.gnome.org/extension-data/openbarxyz.ezgmail.com.v18.shell-extension.zip && \
-    unzip /tmp/open-bar.zip -d $EXT_DIR/openbar@xyz.ez.gmail.com && \
-    # VSHell
-    wget -O /tmp/vshell.zip https://extensions.gnome.org/extension-data/vshellv-shell.github.com.v5.shell-extension.zip && \
-    unzip /tmp/vshell.zip -d $EXT_DIR/vshell@v-shell.github.com && \
-    # Astra Monitor
-    wget -O /tmp/astramonitor.zip https://extensions.gnome.org/extension-data/astramonitorastra-monitor.github.io.v6.shell-extension.zip && \
-    unzip /tmp/astramonitor.zip -d $EXT_DIR/astramonitor@astra-monitor.github.io && \
-    # Forge
-    wget -O /tmp/forge.zip https://extensions.gnome.org/extension-data/forgejmmaranan.gmail.com.v6.shell-extension.zip && \
-    unzip /tmp/forge.zip -d $EXT_DIR/forge@jmmaranan.gmail.com && \
-    # Media Controls
-    wget -O /tmp/media-controls.zip https://extensions.gnome.org/extension-data/mediacontrolscliffniff.github.com.v31.shell-extension.zip && \
-    unzip /tmp/media-controls.zip -d $EXT_DIR/mediacontrols@cliffniff.github.com && \
-    rm /tmp/*.zip
+    for UUID in \
+    openbar@xyz.ez.gmail.com \
+    vshell@v-shell.github.com \
+    astramonitor@astra-monitor.github.io \
+    forge@jmmaranan.gmail.com \
+    ; do \
+    NAME=$(echo $UUID | cut -d'@' -f1); \
+    ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$NAME" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${NAME}[^\"']*\.zip" | head -1); \
+    if [ -z "$ZIP_URL" ]; then echo "Failed to find ZIP for $UUID"; exit 1; fi; \
+    wget -O /tmp/$NAME.zip "$ZIP_URL"; \
+    unzip /tmp/$NAME.zip -d $EXT_DIR/$UUID; \
+    done && rm /tmp/*.zip
 
-# Enable GNOME extensions
-RUN gnome-extensions enable dash-to-dock@micxgx.gmail.com && \
-    gnome-extensions enable openbar@xyz.ez.gmail.com && \
-    gnome-extensions enable vshell@v-shell.github.com && \
-    gnome-extensions enable astramonitor@astra-monitor.github.io && \
-    gnome-extensions enable forge@jmmaranan.gmail.com && \
-    gnome-extensions enable mediacontrols@cliffniff.github.com || true
+# Enable GNOME extensions (gdm session, so enable via dconf or firstboot script in real deployments)
+# For direct scripting, may require a user session; here, just for documentary purposes:
+RUN gnome-extensions enable dash-to-dock@micxgx.gmail.com || true && \
+    gnome-extensions enable mediacontrols@cliffniff.github.com || true && \
+    gnome-extensions enable openbar@xyz.ez.gmail.com || true && \
+    gnome-extensions enable vshell@v-shell.github.com || true && \
+    gnome-extensions enable astramonitor@astra-monitor.github.io || true && \
+    gnome-extensions enable forge@jmmaranan.gmail.com || true
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
