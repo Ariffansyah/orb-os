@@ -184,21 +184,19 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && /usr/libexec/containerbuild/cleanup.sh \
     && ostree container commit
 
-# Install required tools
 RUN rpm-ostree install unzip wget curl && \
     /usr/libexec/containerbuild/cleanup.sh
 
-# Download and install GNOME Shell Extensions NOT available as RPMs
 RUN set -e; \
     EXT_DIR="/usr/share/gnome-shell/extensions"; \
     for UUID in \
-    openbar@xyz.ez.gmail.com \
-    vshell@v-shell.github.com \
-    astramonitor@astra-monitor.github.io \
-    forge@jmmaranan.gmail.com \
+    openbar@marcinjakubowski.github.com \
+    v-shell@v-shell.github.com \
+    astra-monitor@astra-monitor.github.io \
+    Forge@jmmaranan.gmail.com \
     mediacontrols@cliffniff.github.com \
     ; do \
-    NAME=$(echo $UUID | cut -d'@' -f1); \
+    NAME=$(echo $UUID | cut -d'@' -f1 | tr 'A-Z' 'a-z'); \
     ZIP_URL=$(curl -s "https://extensions.gnome.org/extension-query/?search=$NAME" | grep -oP "https://extensions.gnome.org/extension-data/[^\"']*${NAME}[^\"']*\.zip" | head -1); \
     if [ -z "$ZIP_URL" ]; then echo "Failed to find ZIP for $UUID"; exit 1; fi; \
     wget -O /tmp/$NAME.zip "$ZIP_URL"; \
