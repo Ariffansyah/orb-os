@@ -17,9 +17,9 @@ rpm-ostree rebase ostree-unverified-registry:ghcr.io/ariffnasyah/orb-os:latest
 ```
 
 ## Gnome Desktop Environment Extensions (Optional for better experience) (Will be added to pre-installed in future)
-- **Dash to dock**: A popular extension that transforms the Gnome shell into a dock, providing quick access to your favorite applications.
-- **Open Bar**: A minimalistic extension that provides a clean and simple top bar, allowing you to focus on your work without distractions.
-- **VShell**: A powerful extension that allows you to run shell commands directly from the Gnome shell, making it easy to execute scripts and commands without leaving your desktop.
-- **Astra Monitor**: A system monitor extension that provides real-time information about your system's performance, including CPU usage, memory usage, and network activity.
-- **Forge**: A powerful extension that allows you to create and manage custom keyboard shortcuts for your favorite applications and commands.
-- **Media Controls**: A media control extension that provides quick access to your media playback controls, allowing you to play, pause, and skip tracks without leaving your current application.
+- **Dash to dock**
+- **Open Bar**
+- **VShell**
+- **Astra Monitor**
+- **Forge**
+- **Media Controls**
