@@ -170,7 +170,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-control-center \
     gnome-tweaks \
     gnome-extensions-app \
-    gnome-extensions \
     gnome-shell-extension-appindicator \
     gnome-backgrounds \
     gnome-themes-extra \
