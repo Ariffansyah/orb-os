@@ -173,7 +173,13 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-shell-extension-appindicator \
     gnome-backgrounds \
     gnome-themes-extra \
-    gnome-shell-extension-dash-to-dock \
+    gnome-shell-extension-vertical-workspaces \
+    gnome-shell-extension-forge \
+    gnome-shell-extension-mediacontrols \
+    gnome-shell-extension-openbar \
+    gnome-shell-extension-vshell \
+    gnome-shell-extension-system-monitor \
+    gnome-shell-extension-dash-to-panel \
     gdm \
     gnome-software \
     gnome-disk-utility \
@@ -184,36 +190,15 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && /usr/libexec/containerbuild/cleanup.sh \
     && ostree container commit
 
-RUN rpm-ostree install unzip wget curl && \
-    /usr/libexec/containerbuild/cleanup.sh
-
-
-
-RUN set -e; \
-    EXT_DIR="/usr/share/gnome-shell/extensions"; \
-    GNOME_VER=45; \
-    declare -A EXT_IDS=( \
-    [grand-theft-focus@zalckos.github.com]=5410 \
-    [vertical-workspaces@thibaultmol.github.com]=5177 \
-    [astra-monitor@astra-monitor.github.io]=6682 \
-    [Forge@jmmaranan.gmail.com]=4481 \
-    [mediacontrols@cliffniff.github.com]=4470 \
-    ); \
-    for UUID in "${!EXT_IDS[@]}"; do \
-    ID=${EXT_IDS[$UUID]}; \
-    ZIP_PATH=$(curl -s "https://extensions.gnome.org/extension-info/?pk=$ID&shell_version=$GNOME_VER" | grep -oP '"download_url":\s*"\K[^"]+'); \
-    if [ -z "$ZIP_PATH" ]; then echo "Failed to find ZIP for $UUID (ID $ID)"; exit 1; fi; \
-    wget -O "/tmp/$ID.zip" "https://extensions.gnome.org$ZIP_PATH"; \
-    unzip "/tmp/$ID.zip" -d "$EXT_DIR/$UUID"; \
-    done && rm /tmp/*.zip
-
 # Enable GNOME extensions (may require user session or a firstboot script)
-RUN gnome-extensions enable dash-to-dock@micxgx.gmail.com || true && \
+RUN gnome-extensions enable dash-to-panel@jderose9.github.com || true && \
     gnome-extensions enable mediacontrols@cliffniff.github.com || true && \
     gnome-extensions enable openbar@xyz.ez.gmail.com || true && \
     gnome-extensions enable vshell@v-shell.github.com || true && \
     gnome-extensions enable astramonitor@astra-monitor.github.io || true && \
+    gnome-extensions enable openbar@neuromorph || true && \
     gnome-extensions enable forge@jmmaranan.gmail.com || true
+
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
