@@ -1,30 +1,51 @@
-# justfile to preinstall and pre-enable GNOME extensions on uBlue
+# Justfile to install and pre-enable GNOME Shell extensions
 
-gnome-preinstall-extensions:
-    # List of GNOME extension UUIDs and their EGO/extension IDs
-    EXTENSIONS=(
-      "openbar@neuromorph:6580"
-      "vertical-workspaces@thibaultmol.github.com:5177"
-      "Forge@jmmaranan.gmail.com:4481"
-      "mediacontrols@cliffniff.github.com:4470"
-      "dash-to-panel@jderose9.github.com:1160"
-    )
+set shell := ["bash", "-cu"]
 
-    # Ensure gnome-shell-extension-installer is present
-    if ! command -v gnome-shell-extension-installer >/dev/null; then
-      echo "Installing gnome-shell-extension-installer..."
-      sudo curl -o /usr/local/bin/gnome-shell-extension-installer \
-        https://raw.githubusercontent.com/brunelli/gnome-shell-extension-installer/master/gnome-shell-extension-installer
-      sudo chmod +x /usr/local/bin/gnome-shell-extension-installer
-    fi
+# List of GNOME extension UUIDs to install and enable
+EXTENSIONS := "openbar@neuromorph vertical-workspaces@thibaultmol.github.com Forge@jmmaranan.gmail.com mediacontrols@cliffniff.github.com dash-to-panel@jderose9.github.com"
 
-    # Install and enable each extension
-    for item in "${EXTENSIONS[@]}"; do
-      IFS=":" read -r UUID EGO_ID <<< "$item"
-      echo "Installing $UUID (ID: $EGO_ID)..."
-      gnome-shell-extension-installer "$EGO_ID" --yes
-      echo "Enabling $UUID..."
-      gnome-extensions enable "$UUID" || echo "Will enable $UUID after next session if not enabled now."
+# Directory where GNOME extensions are installed
+EXT_DIR := "$HOME/.local/share/gnome-shell/extensions"
+
+# URL for GNOME Extensions website
+EXT_URL := "https://extensions.gnome.org/extension-query/"
+
+# Required dependencies: jq, curl, unzip
+install-deps:
+    sudo apt-get update
+    sudo apt-get install -y jq curl unzip
+
+# Download and install a GNOME extension by UUID
+# Usage: just install-extension EXTENSION_UUID
+install-extension uuid:
+    mkdir -p {{EXT_DIR}}
+    # Get GNOME Shell version
+    VERSION="$(gnome-shell --version | grep -o '[0-9]*\\.[0-9]*')" && \
+    # Get extension metadata and download URL
+    DATA="$(curl -s "{{EXT_URL}}?search={{uuid}}")" && \
+    PK=$(echo $$DATA | jq '.extensions[] | select(.uuid=="{{uuid}}") | .pk') && \
+    DL_URL=$(curl -s "https://extensions.gnome.org/extension-info/?pk=$$PK&shell_version=$$VERSION" | jq -r '.download_url') && \
+    curl -L "https://extensions.gnome.org$$DL_URL" -o /tmp/ext.zip && \
+    rm -rf {{EXT_DIR}}/{{uuid}} && \
+    unzip -o /tmp/ext.zip -d {{EXT_DIR}}/{{uuid}} && \
+    rm /tmp/ext.zip
+    # Pre-enable the extension
+    gnome-extensions enable {{uuid}} || true
+
+# Install and enable all extensions listed in EXTENSIONS
+install-all:
+    for uuid in {{EXTENSIONS}}; do \
+      just install-extension "$$uuid"; \
     done
 
-    echo "All extensions installed and enabled. Please restart GNOME Shell (Alt+F2, r, Enter) or log out and log back in if needed."
+# Main task: install dependencies and all extensions
+install: install-deps install-all
+
+# Example usage:
+# 1. Run: just install
+#
+# Requirements:
+# - just
+# - jq, curl, unzip (install-deps task will install them on Debian/Ubuntu)
+# - gnome-shell, gnome-extensions CLI
