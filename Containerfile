@@ -173,13 +173,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-shell-extension-appindicator \
     gnome-backgrounds \
     gnome-themes-extra \
-    gnome-shell-extension-vertical-workspaces \
-    gnome-shell-extension-forge \
-    gnome-shell-extension-mediacontrols \
-    gnome-shell-extension-openbar \
-    gnome-shell-extension-vshell \
-    gnome-shell-extension-system-monitor \
-    gnome-shell-extension-dash-to-panel \
     gdm \
     gnome-software \
     gnome-disk-utility \
@@ -190,15 +183,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && /usr/libexec/containerbuild/cleanup.sh \
     && ostree container commit
 
-# Enable GNOME extensions (may require user session or a firstboot script)
-RUN gnome-extensions enable dash-to-panel@jderose9.github.com || true && \
-    gnome-extensions enable mediacontrols@cliffniff.github.com || true && \
-    gnome-extensions enable openbar@xyz.ez.gmail.com || true && \
-    gnome-extensions enable vshell@v-shell.github.com || true && \
-    gnome-extensions enable astramonitor@astra-monitor.github.io || true && \
-    gnome-extensions enable openbar@neuromorph || true && \
-    gnome-extensions enable forge@jmmaranan.gmail.com || true
-
+RUN rpm-ostree install unzip wget curl && \
+    /usr/libexec/containerbuild/cleanup.sh
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
@@ -252,6 +238,10 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Create firstboot service
     mkdir -p /usr/lib/systemd/system && \
     echo -e '[Unit]\nDescription=Set correct origin for orb-os\nAfter=network-online.target\nWants=network-online.target\nConditionPathExists=!/var/lib/orb-os-firstboot-done\n\n[Service]\nType=oneshot\nExecStart=/usr/libexec/orb-os/firstboot.sh\nExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /usr/lib/systemd/system/orb-os-firstboot.service && \
+    # Adding justfile
+    echo "import \"/usr/share/ublue-os/just/80-orb.just\"" >> /usr/share/ublue-os/justfile && \
+    echo "import \"/usr/share/ublue-os/just/81-orb-fix.just\"" >> /usr/share/ublue-os/justfile && \
+    echo "import \"/usr/share/ublue-os/just/82-orb-extensions.just\"" >> /usr/share/ublue-os/justfile && \
     # Service management
     systemctl enable lactd || true && \
     systemctl enable gdm && \
