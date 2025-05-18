@@ -8,10 +8,6 @@ EXTENSIONS := "openbar@neuromorph vertical-workspaces@thibaultmol.github.com For
 # Directory where GNOME extensions are installed
 EXT_DIR := "$HOME/.local/share/gnome-shell/extensions"
 
-# Required dependencies: jq, curl, unzip, gnome-extensions
-install-deps:
-    sudo dnf install -y jq curl unzip gnome-extensions
-
 # Download and install a GNOME extension by UUID (auto-resolves latest PK)
 # Usage: just install-extension EXTENSION_UUID
 install-extension uuid:
@@ -37,7 +33,7 @@ install-all:
     done
 
 # Main task: install dependencies and all extensions
-install: install-deps install-all
+install: install-all
 
 # Usage:
 # - Run: just install
