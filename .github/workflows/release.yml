@@ -1,0 +1,40 @@
+name: Release ISO
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"  # Or your preferred tag pattern
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.repository.name }}-latest
+          # If your artifact name or tag is different, adjust accordingly
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: "Release ${{ github.ref_name }}"
+          body: |
+            Automated ISO release.
+          draft: false
+          prerelease: false
+
+      - name: Upload ISO and Checksum to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.iso
+            *.iso-CHECKSUM
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
