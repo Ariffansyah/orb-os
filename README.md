@@ -23,3 +23,7 @@ rpm-ostree rebase ostree-unverified-registry:ghcr.io/ariffnasyah/orb-os:latest
 - **Astra Monitor**
 - **Forge**
 - **Media Controls**
+
+## Preview
+![fastfetch](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/250511_21h21m38s_screenshot.png)
+![desktop](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/250511_21h22m22s_screenshot.png)
