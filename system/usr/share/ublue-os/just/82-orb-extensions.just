@@ -19,7 +19,7 @@ install-extension uuid:
 
 install-all:
     for uuid in {{EXTENSIONS}}; do
-      just install-extension "$$uuid";
+        just install-extension "$$uuid";
     done
 
 install: install-all
