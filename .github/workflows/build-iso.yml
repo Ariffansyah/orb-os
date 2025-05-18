@@ -125,3 +125,25 @@ jobs:
           retention-days: 30
           compression-level: 3
           overwrite: true
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: build-${{ github.run_number }}
+          release_name: "Build ${{ github.run_number }}"
+          body: |
+            Automated ISO build by GitHub Actions.
+          draft: false
+          prerelease: false
+
+      - name: Upload ISO and Checksum to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ steps.build.outputs.iso_path }}
+            ${{ steps.build.outputs.iso_path }}-CHECKSUM
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
