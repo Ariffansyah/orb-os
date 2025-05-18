@@ -1,4 +1,4 @@
-# Justfile to install and pre-enable GNOME Shell extensions
+# Justfile to install and pre-enable GNOME Shell extensions on Fedora
 
 set shell := ["bash", "-cu"]
 
@@ -8,29 +8,26 @@ EXTENSIONS := "openbar@neuromorph vertical-workspaces@thibaultmol.github.com For
 # Directory where GNOME extensions are installed
 EXT_DIR := "$HOME/.local/share/gnome-shell/extensions"
 
-# URL for GNOME Extensions website
-EXT_URL := "https://extensions.gnome.org/extension-query/"
-
-# Required dependencies: jq, curl, unzip
+# Required dependencies: jq, curl, unzip, gnome-extensions
 install-deps:
-    sudo apt-get update
-    sudo apt-get install -y jq curl unzip
+    sudo dnf install -y jq curl unzip gnome-extensions
 
-# Download and install a GNOME extension by UUID
+# Download and install a GNOME extension by UUID (auto-resolves latest PK)
 # Usage: just install-extension EXTENSION_UUID
 install-extension uuid:
     mkdir -p {{EXT_DIR}}
-    # Get GNOME Shell version
-    VERSION="$(gnome-shell --version | grep -o '[0-9]*\\.[0-9]*')" && \
-    # Get extension metadata and download URL
-    DATA="$(curl -s "{{EXT_URL}}?search={{uuid}}")" && \
-    PK=$(echo $$DATA | jq '.extensions[] | select(.uuid=="{{uuid}}") | .pk') && \
+    # Detect GNOME Shell version (major.minor)
+    VERSION="$(gnome-shell --version | grep -o '[0-9]*\.[0-9]*')" && \
+    # Find the extension's PK using the UUID
+    PK=$(curl -s "https://extensions.gnome.org/extension-query/?search={{uuid}}" | jq ".extensions[] | select(.uuid==\"{{uuid}}\") | .pk") && \
+    # Get the download URL for the correct shell version
     DL_URL=$(curl -s "https://extensions.gnome.org/extension-info/?pk=$$PK&shell_version=$$VERSION" | jq -r '.download_url') && \
+    # Download and unzip the extension
     curl -L "https://extensions.gnome.org$$DL_URL" -o /tmp/ext.zip && \
     rm -rf {{EXT_DIR}}/{{uuid}} && \
     unzip -o /tmp/ext.zip -d {{EXT_DIR}}/{{uuid}} && \
     rm /tmp/ext.zip
-    # Pre-enable the extension
+    # Enable the extension
     gnome-extensions enable {{uuid}} || true
 
 # Install and enable all extensions listed in EXTENSIONS
@@ -42,10 +39,8 @@ install-all:
 # Main task: install dependencies and all extensions
 install: install-deps install-all
 
-# Example usage:
-# 1. Run: just install
-#
-# Requirements:
-# - just
-# - jq, curl, unzip (install-deps task will install them on Debian/Ubuntu)
-# - gnome-shell, gnome-extensions CLI
+# Usage:
+# - Run: just install
+# - Fedora only (uses dnf for dependencies)
+# - No need to enter PK/UID manually; script resolves it automatically.
+# - You can edit EXTENSIONS above to add or remove extensions.
