@@ -245,6 +245,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     echo "import \"/usr/share/ublue-os/just/80-orb.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/81-orb-fix.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/82-orb-extensions.just\"" >> /usr/share/ublue-os/justfile && \
+    echo "import \"/usr/share/ublue-os/just/83-orb-jetbrains.just\"" >> /usr/share/ublue-os/justfile && \
     # Service management
     systemctl enable lactd || true && \
     systemctl enable gdm && \
