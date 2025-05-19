@@ -16,13 +16,20 @@ Orb OS is a Linux-based operating system designed with developers in mind. Built
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/ariffnasyah/orb-os:latest
 ```
 
-## Gnome Desktop Environment Extensions (Optional for better experience) (Will be added to pre-installed in future)
-- **Dash to dock**
-- **Open Bar**
+## Gnome Desktop Environment Extensions
+- **Dash to Panel**
 - **VShell**
-- **Astra Monitor**
 - **Forge**
 - **Media Controls**
+
+after installing the operating system, you can install the extensions using the following command:
+```
+ujust install
+```
+and then restart the gnome shell by pressing `Alt + F2` and typing `r` and pressing enter. or you can reboot the system, then run the following command:
+```
+ujust enable
+```
 
 ## Preview
 ![fastfetch](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/250511_21h21m38s_screenshot.png)
