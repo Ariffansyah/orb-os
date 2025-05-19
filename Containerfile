@@ -128,6 +128,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ublue-os-update-services \
     htop \
     nvtop \
+    firefox firefox-langpacks \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -151,8 +152,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cascadia-code-nf-fonts cascadia-mono-nf-fonts \
     # Editors
     neovim \
-    # Ensure Firefox is installed
-    firefox firefox-langpacks \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
