@@ -96,7 +96,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     rpm-ostree install \
-    firefox firefox-langpacks \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -152,10 +151,22 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cascadia-code-nf-fonts cascadia-mono-nf-fonts \
     # Editors
     neovim \
+    # QT
+    qt-creator \
+    # Qt5 development packages
+    qt5-qtbase-devel qt5-qttools qt5-qtdeclarative-devel qt5-qtquickcontrols2-devel qt5-qtmultimedia-devel qt5-qtwebsockets-devel \
+    # Qt6 development packages
+    qt6-qtbase-devel qt6-qttools qt6-qtdeclarative-devel qt6-qtquick3d-devel qt6-qtmultimedia-devel qt6-qtwebsockets-devel \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
+# Install JetBrains Toolbox
+RUN wget -O /tmp/jetbrains-toolbox.tar.gz "https://download.jetbrains.com/toolbox/jetbrains-toolbox-2.3.1.31116.tar.gz" && \
+    tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /tmp && \
+    TOOLBOX_DIR=$(find /tmp -maxdepth 1 -type d -name "jetbrains-toolbox-*") && \
+    install -Dm755 "$TOOLBOX_DIR/jetbrains-toolbox" /usr/local/bin/jetbrains-toolbox && \
+    rm -rf /tmp/jetbrains-toolbox*
 
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
