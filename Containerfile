@@ -161,14 +161,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-# Install JetBrains Toolbox
-RUN wget -O /tmp/jetbrains-toolbox.tar.gz "https://download.jetbrains.com/toolbox/jetbrains-toolbox-2.3.1.31116.tar.gz" && \
-    tar -xzf /tmp/jetbrains-toolbox.tar.gz -C /tmp && \
-    TOOLBOX_DIR=$(find /tmp -maxdepth 1 -type d -name "jetbrains-toolbox-*") && \
-    cp "$TOOLBOX_DIR/jetbrains-toolbox" /usr/local/bin/jetbrains-toolbox && \
-    chmod 755 /usr/local/bin/jetbrains-toolbox && \
-    rm -rf /tmp/jetbrains-toolbox*
-
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
