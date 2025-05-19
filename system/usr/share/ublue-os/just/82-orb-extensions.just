@@ -1,10 +1,6 @@
 set shell := ["bash", "-cu"]
 
 install:
-  # openbarneuromorph
-  curl -L "https://extensions.gnome.org/extension-data/openbarneuromorph.v43.shell-extension.zip" -o /tmp/openbarneuromorph.zip
-  gnome-extensions install --force /tmp/openbarneuromorph.zip || true
-
   # dash-to-panel
   curl -L "https://extensions.gnome.org/extension-data/dash-to-paneljderose9.github.com.v66.shell-extension.zip" -o /tmp/dash-to-panel.zip
   gnome-extensions install --force /tmp/dash-to-panel.zip || true
@@ -23,7 +19,6 @@ install:
   echo "Installed. please reboot, then run: ujust enable"
 
 enable:
-  gnome-extensions enable openbar@neuromorph || true
   gnome-extensions enable dash-to-panel@jderose9.github.com || true
   gnome-extensions enable forge@jmmaranan.com || true
   gnome-extensions enable vertical-workspaces@G-dH.github.com || true
