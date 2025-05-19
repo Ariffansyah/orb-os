@@ -10,6 +10,9 @@ ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
+FROM scratch AS ctx
+COPY system/usr/libexec/containerbuild /build
+
 # Copy system files
 COPY system /
 
@@ -276,12 +279,8 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     sed -i 's@enabled=1@enabled=0@g' /etc/yum.repos.d/$repo; \
     fi \
     done || true && \
-    # Configure OSTree remote and origin
-    ostree remote delete orb-os 2>/dev/null || true && \
-    ostree remote add --no-gpg-verify orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os && \
     # Finishing up
-    if [ -x /usr/libexec/containerbuild/image-info ]; then /usr/libexec/containerbuild/image-info; fi && \
-    if [ -x /usr/libexec/containerbuild/build-initramfs ]; then /usr/libexec/containerbuild/build-initramfs; fi && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/image-info && \
+    /ctx/build/cleanup.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
