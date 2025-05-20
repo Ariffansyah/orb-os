@@ -206,7 +206,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && ostree container commit
 
 RUN rpm-ostree install unzip wget curl && \
-    /build/cleanup.sh
+    ctx/build/cleanup.sh
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
