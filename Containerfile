@@ -1,6 +1,3 @@
-# Expose /usr/libexec for build context
-# No commands are needed, just use the system files
-
 FROM ghcr.io/ublue-os/base-main:42
 
 # Define build arguments
@@ -13,7 +10,7 @@ ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
-FROM scratch AS ctx
+FROM ghcr.io/ublue-os/base-main:42 AS ctx
 # Copy system files
 COPY system /
 
