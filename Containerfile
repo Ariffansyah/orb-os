@@ -10,33 +10,14 @@ ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
-# -------------
-# Build context stage
-# -------------
-FROM scratch AS ctx
-COPY build /build
+# Copy system files
 COPY system /
-
-# -------------
-# Main build stage
-# -------------
-FROM ghcr.io/ublue-os/base-main:42
-
-# (repeat ARGs if needed in this stage)
-ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
-ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
-ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-gnome}"
-ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
-ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base-main}"
-ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
-ARG VERSION_TAG="${VERSION_TAG}"
-ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
 # ==========================================
 # SECTION 1: SYSTEM PACKAGE OVERRIDES
 # ==========================================
+# Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree override replace \
     --experimental \
     --from repo=fedora \
@@ -102,32 +83,29 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     glibc32 \
     nvtop \
     || true && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 2: REPOSITORY SETUP
 # ==========================================
+# Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     rpm-ostree install \
     || true && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 3: CORE UTILITIES
 # ==========================================
+# Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
-    unzip \
-    wget \
-    curl \
     # Terminal utilities
     git vim zsh starship tmux \
     # Terminal emulators
@@ -137,29 +115,32 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # PostgreSQL CLI tools
     postgresql \
     || true && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 4: PACKAGE REMOVALS
 # ==========================================
+# Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree override remove \
     ublue-os-update-services \
     htop \
     nvtop \
     firefox firefox-langpacks \
     || true && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 5: DEVELOPER TOOLS & UTILITIES
 # ==========================================
+# Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
+    unzip \ 
+    wget \
+    curl \
     # Productivity tools
     git fzf zoxide \
     btop fastfetch \
@@ -180,14 +161,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Qt6 development packages
     qt6-qtbase-devel qt6-qttools qt6-qtdeclarative-devel qt6-qtquick3d-devel qt6-qtmultimedia-devel qt6-qtwebsockets-devel \
     || true && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
+# Install GNOME desktop environment and utilities, and only RPM-packaged extensions
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     gnome-shell \
     gnome-session \
@@ -205,13 +186,17 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-keyring \
     NetworkManager-tui \
     NetworkManager-openvpn \
-    && /ctx/build/cleanup.sh \
+    && /usr/libexec/containerbuild/cleanup.sh \
     && ostree container commit
 
+RUN rpm-ostree install unzip wget curl && \
+    /usr/libexec/containerbuild/cleanup.sh
+
+# ==========================================
 # SECTION 7: HOMEBREW SETUP
 # ==========================================
+# Install Homebrew package manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     echo "Will install Homebrew inside /home/linuxbrew" && \
     touch /.dockerenv && \
     mkdir -p /var/home && \
@@ -220,14 +205,14 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     chmod +x /tmp/brew-install && \
     /tmp/brew-install && \
     tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 8: PROGRAMMING LANGUAGES
 # ==========================================
+# Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     # JavaScript/Node.js
     nodejs npm \
@@ -238,18 +223,27 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Python
     python3 python3-pip python3-devel \
     || true && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
 # ==========================================
 # SECTION 9: FINAL CONFIGURATION
 # ==========================================
+# Copy override files and configure the system
 COPY override /
 
-RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
-    mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
+    # Create OSTree remote configuration for proper updates
+    mkdir -p /etc/ostree/remotes.d && \
+    echo -e "[remote \"orb-os\"]\nurl=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os\ngpg-verify=false" > /etc/ostree/remotes.d/orb-os.conf && \
     # Create directory for firstboot script
     mkdir -p /usr/libexec/orb-os && \
+    # Create firstboot script to set proper origin
+    echo -e '#!/bin/bash\n\n# Set the correct origin for the current deployment\nrpm-ostree origin referrer set ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest\necho "Origin reference updated successfully"\n' > /usr/libexec/orb-os/firstboot.sh && \
+    chmod +x /usr/libexec/orb-os/firstboot.sh && \
+    # Create firstboot service
+    mkdir -p /usr/lib/systemd/system && \
+    echo -e '[Unit]\nDescription=Set correct origin for orb-os\nAfter=network-online.target\nWants=network-online.target\nConditionPathExists=!/var/lib/orb-os-firstboot-done\n\n[Service]\nType=oneshot\nExecStart=/usr/libexec/orb-os/firstboot.sh\nExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /usr/lib/systemd/system/orb-os-firstboot.service && \
     # Adding justfile
     echo "import \"/usr/share/ublue-os/just/80-orb.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/81-orb-fix.just\"" >> /usr/share/ublue-os/justfile && \
@@ -286,7 +280,7 @@ RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     fi \
     done || true && \
     # Finishing up
-    /ctx/build/image-info && \
-    /ctx/build/cleanup.sh && \
+    /usr/libexec/containerbuild/image-info && \
+    /usr/libexec/containerbuild/cleanup.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
