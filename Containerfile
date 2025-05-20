@@ -10,17 +10,33 @@ ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
 ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
-# Copy system files
+# -------------
+# Build context stage
+# -------------
 FROM scratch AS ctx
 COPY build /build
-
 COPY system /
+
+# -------------
+# Main build stage
+# -------------
+FROM ghcr.io/ublue-os/base-main:42
+
+# (repeat ARGs if needed in this stage)
+ARG IMAGE_NAME="${IMAGE_NAME:-orb}"
+ARG IMAGE_VENDOR="${IMAGE_VENDOR:-ublue-os}"
+ARG IMAGE_FLAVOR="${IMAGE_FLAVOR:-gnome}"
+ARG IMAGE_BRANCH="${IMAGE_BRANCH:-main}"
+ARG BASE_IMAGE_NAME="${BASE_IMAGE_NAME:-base-main}"
+ARG FEDORA_MAJOR_VERSION="${FEDORA_MAJOR_VERSION:-42}"
+ARG VERSION_TAG="${VERSION_TAG}"
+ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
 # ==========================================
 # SECTION 1: SYSTEM PACKAGE OVERRIDES
 # ==========================================
-# Override system packages with updates for better compatibility
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree override replace \
     --experimental \
     --from repo=fedora \
@@ -92,8 +108,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 2: REPOSITORY SETUP
 # ==========================================
-# Add necessary repositories
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
@@ -106,8 +122,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 3: CORE UTILITIES
 # ==========================================
-# Install basic terminal utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     # Terminal utilities
     git vim zsh starship tmux \
@@ -124,8 +140,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 4: PACKAGE REMOVALS
 # ==========================================
-# Remove unwanted packages
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree override remove \
     ublue-os-update-services \
     htop \
@@ -138,8 +154,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 5: DEVELOPER TOOLS & UTILITIES
 # ==========================================
-# Install developer tools and additional utilities
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     # Productivity tools
     git fzf zoxide \
@@ -167,8 +183,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
-# Install GNOME desktop environment and utilities, and only RPM-packaged extensions
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     gnome-shell \
     gnome-session \
@@ -190,13 +206,13 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && ostree container commit
 
 RUN rpm-ostree install unzip wget curl && \
-    /ctx/build/cleanup.sh
+    /build/cleanup.sh
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
 # ==========================================
-# Install Homebrew package manager
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     echo "Will install Homebrew inside /home/linuxbrew" && \
     touch /.dockerenv && \
     mkdir -p /var/home && \
@@ -211,8 +227,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 8: PROGRAMMING LANGUAGES
 # ==========================================
-# Install programming languages and development tools
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     # JavaScript/Node.js
     nodejs npm \
@@ -229,8 +245,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 9: FINAL CONFIGURATION
 # ==========================================
-# Copy override files and configure the system
-COPY override /
+COPY --from=ctx /override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Create OSTree remote configuration for proper updates
