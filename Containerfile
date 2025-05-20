@@ -125,6 +125,9 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
+    unzip \
+    wget \
+    curl \
     # Terminal utilities
     git vim zsh starship tmux \
     # Terminal emulators
@@ -204,9 +207,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     NetworkManager-openvpn \
     && /ctx/build/cleanup.sh \
     && ostree container commit
-
-RUN rpm-ostree install unzip wget curl && \
-    ctx/build/cleanup.sh
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
