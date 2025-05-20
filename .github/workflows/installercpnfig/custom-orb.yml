@@ -1,4 +1,0 @@
-post_install:
-  - name: Set ostree origin to GHCR remote
-    run: |
-      ostree admin set-origin orb-os ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest

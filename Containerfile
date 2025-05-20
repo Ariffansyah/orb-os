@@ -11,6 +11,9 @@ ARG VERSION_TAG="${VERSION_TAG}"
 ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
 # Copy system files
+FROM scratch AS ctx
+COPY build /build
+
 COPY system /
 
 # ==========================================
@@ -83,7 +86,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     glibc32 \
     nvtop \
     || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -97,7 +100,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     rpm-ostree install \
     || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -115,7 +118,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # PostgreSQL CLI tools
     postgresql \
     || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -129,7 +132,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     nvtop \
     firefox firefox-langpacks \
     || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -158,7 +161,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Qt6 development packages
     qt6-qtbase-devel qt6-qttools qt6-qtdeclarative-devel qt6-qtquick3d-devel qt6-qtmultimedia-devel qt6-qtwebsockets-devel \
     || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -183,11 +186,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     gnome-keyring \
     NetworkManager-tui \
     NetworkManager-openvpn \
-    && /usr/libexec/containerbuild/cleanup.sh \
+    && /ctx/build/cleanup.sh \
     && ostree container commit
 
 RUN rpm-ostree install unzip wget curl && \
-    /usr/libexec/containerbuild/cleanup.sh
+    /ctx/build/cleanup.sh
 
 # ==========================================
 # SECTION 7: HOMEBREW SETUP
@@ -202,7 +205,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     chmod +x /tmp/brew-install && \
     /tmp/brew-install && \
     tar --zstd -cvf /usr/share/homebrew.tar.zst /home/linuxbrew/.linuxbrew && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -220,7 +223,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Python
     python3 python3-pip python3-devel \
     || true && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/cleanup.sh && \
     ostree container commit
 
 # ==========================================
@@ -277,7 +280,7 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     fi \
     done || true && \
     # Finishing up
-    /usr/libexec/containerbuild/image-info && \
-    /usr/libexec/containerbuild/cleanup.sh && \
+    /ctx/build/image-info && \
+    /ctx/build/cleanup.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     ostree container commit
