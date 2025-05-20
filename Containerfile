@@ -22,7 +22,7 @@ COPY system /
 # SECTION 1: SYSTEM PACKAGE OVERRIDES
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree override replace \
     --experimental \
     --from repo=fedora \
@@ -89,7 +89,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 2: REPOSITORY SETUP
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     curl -Lo /etc/yum.repos.d/_copr_pgdev-ghostty.repo \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
@@ -103,7 +103,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 3: CORE UTILITIES
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     git vim zsh starship tmux \
     ghostty ptyxis \
@@ -117,7 +117,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 4: PACKAGE REMOVALS
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree override remove \
     ublue-os-update-services \
     htop \
@@ -131,7 +131,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 5: DEVELOPER TOOLS & UTILITIES
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     unzip \ 
     wget \
@@ -155,7 +155,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     gnome-shell \
     gnome-session \
@@ -176,7 +176,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && /ctx/usr/libexec/containerbuild/cleanup.sh \
     && ostree container commit
 
-RUN --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install unzip wget curl && \
     /ctx/usr/libexec/containerbuild/cleanup.sh
 
@@ -184,7 +184,7 @@ RUN --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
 # SECTION 7: HOMEBREW SETUP
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     echo "Will install Homebrew inside /home/linuxbrew" && \
     touch /.dockerenv && \
     mkdir -p /var/home && \
@@ -200,7 +200,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # SECTION 8: PROGRAMMING LANGUAGES
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+    --mount=type=bind,from=ctx,source=/,target=/ctx \
     rpm-ostree install \
     nodejs npm \
     java-latest-openjdk \
@@ -215,7 +215,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 COPY override /
 
-RUN --mount=type=bind,from=ctx,source=/usr/libexec,target=/ctx/usr/libexec \
+RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     systemctl enable lactd || true && \
     systemctl enable gdm && \
