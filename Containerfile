@@ -208,7 +208,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     && /ctx/build/cleanup.sh \
     && ostree container commit
 
-# ==========================================
 # SECTION 7: HOMEBREW SETUP
 # ==========================================
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
@@ -245,7 +244,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # ==========================================
 # SECTION 9: FINAL CONFIGURATION
 # ==========================================
-COPY --from=ctx /override /
+COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Create OSTree remote configuration for proper updates
