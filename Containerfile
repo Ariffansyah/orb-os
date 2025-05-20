@@ -233,22 +233,10 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 COPY override /
 
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
-    # Create OSTree remote configuration for proper updates
-    mkdir -p /etc/ostree/remotes.d && \
-    echo -e "[remote \"orb-os\"]\nurl=ostree-unverified-registry:ghcr.io/ariffansyah/orb-os\ngpg-verify=false" > /etc/ostree/remotes.d/orb-os.conf && \
-    # Create directory for firstboot script
-    mkdir -p /usr/libexec/orb-os && \
-    # Create firstboot script to set proper origin
-    echo -e '#!/bin/bash\n\n# Set the correct origin for the current deployment\nrpm-ostree origin referrer set ostree-unverified-registry:ghcr.io/ariffansyah/orb-os:latest\necho "Origin reference updated successfully"\n' > /usr/libexec/orb-os/firstboot.sh && \
-    chmod +x /usr/libexec/orb-os/firstboot.sh && \
-    # Create firstboot service
-    mkdir -p /usr/lib/systemd/system && \
-    echo -e '[Unit]\nDescription=Set correct origin for orb-os\nAfter=network-online.target\nWants=network-online.target\nConditionPathExists=!/var/lib/orb-os-firstboot-done\n\n[Service]\nType=oneshot\nExecStart=/usr/libexec/orb-os/firstboot.sh\nExecStartPost=/usr/bin/touch /var/lib/orb-os-firstboot-done\nRemainAfterExit=yes\n\n[Install]\nWantedBy=multi-user.target' > /usr/lib/systemd/system/orb-os-firstboot.service && \
     # Adding justfile
     echo "import \"/usr/share/ublue-os/just/80-orb.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/81-orb-fix.just\"" >> /usr/share/ublue-os/justfile && \
     echo "import \"/usr/share/ublue-os/just/82-orb-extensions.just\"" >> /usr/share/ublue-os/justfile && \
-    echo "import \"/usr/share/ublue-os/just/83-orb-jetbrains.just\"" >> /usr/share/ublue-os/justfile && \
     # Service management
     systemctl enable lactd || true && \
     systemctl enable gdm && \
