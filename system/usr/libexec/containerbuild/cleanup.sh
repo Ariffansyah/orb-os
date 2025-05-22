@@ -1,5 +1,6 @@
 #!/usr/bin/bash
 
+## This script is used to clean up the system by removing temporary files and directories.
 set -eoux pipefail
 shopt -s extglob
 
