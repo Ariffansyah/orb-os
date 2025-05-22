@@ -12,6 +12,7 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 
 # Copy system files
 COPY system /
+RUN chmod +x /usr/libexec/containerbuild/*
 
 # ==========================================
 # SECTION 1: SYSTEM PACKAGE OVERRIDES
