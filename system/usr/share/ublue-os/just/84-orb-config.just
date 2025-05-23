@@ -1,8 +1,17 @@
 # Use Zsh as the shell for all recipes in this Justfile
 set shell := ["zsh", "-eu", "-c"]
 
-# Setup Neovim, dotfiles (tmux, ghostty, zshrc), and starship config for the current user
+# Setup Neovim, dotfiles (tmux, ghostty, zshrc), starship config, and install Oh My Zsh for the current user
 setup-dev-env:
+    # Ensure $HOME exists (should be true for normal users, but safe for root in containers)
+    mkdir -p "$HOME"
+
+    # Install Oh My Zsh if not already present
+    export ZSH="$HOME/.oh-my-zsh"
+    if [ ! -d "$ZSH" ]; then
+        sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+    fi
+
     # Clone Neovim config
     rm -rf /tmp/unemployee.nvim
     git clone --depth=1 https://github.com/Ariffansyah/unemployee.nvim.git /tmp/unemployee.nvim

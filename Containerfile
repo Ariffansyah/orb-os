@@ -120,11 +120,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-RUN ZSH="/root/.oh-my-zsh" && \
-    if [ ! -d "$ZSH" ]; then \
-    sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended; \
-    fi
-
 # ==========================================
 # SECTION 4: PACKAGE REMOVALS
 # ==========================================
