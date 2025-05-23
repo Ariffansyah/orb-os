@@ -13,6 +13,7 @@ ARG VERSION_PRETTY="${VERSION_PRETTY}"
 # Copy system files
 COPY system /
 RUN chmod +x /usr/libexec/containerbuild/*
+RUN chmod +x /etc/systemd/system/*.service
 
 # ==========================================
 # SECTION 1: SYSTEM PACKAGE OVERRIDES
@@ -233,6 +234,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 # Copy override files and configure the system
 COPY override /
 
+RUN systemctl enable set-hostname.service
+
 RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     # Service management
     systemctl enable lactd || true && \
@@ -273,7 +276,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf && \
     # Finishing up
-    # Set the default shell to zsh
     echo "orb" > /etc/hostname && \
     /usr/libexec/containerbuild/image-info && \
     /usr/libexec/containerbuild/cleanup.sh && \
