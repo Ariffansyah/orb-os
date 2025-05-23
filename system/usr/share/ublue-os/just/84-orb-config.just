@@ -34,5 +34,5 @@ setup-dev-env:
     # Clean up
     rm -rf /tmp/unemployee.nvim /tmp/dotfiles
 
-    chsh -s "$(command -v zsh)"
+    sudo usermod --shell /usr/bin/zsh ${USER}
     echo "Setup complete. Please log out and back in to use Zsh as your default shell."
