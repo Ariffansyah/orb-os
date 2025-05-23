@@ -1,7 +1,3 @@
-# Use Zsh as the shell for all recipes in this Justfile
-set shell := ["zsh", "-eu", "-c"]
-
-# Setup Neovim, dotfiles (tmux, ghostty, zshrc), starship config, and install Oh My Zsh for the current user
 setup-dev-env:
     # Ensure $HOME exists (should be true for normal users, but safe for root in containers)
     mkdir -p "$HOME"
