@@ -1,0 +1,11 @@
+[Unit]
+Description=Set hostname on first boot
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/hostnamectl set-hostname orb-os
+ExecStartPost=/usr/bin/systemctl disable set-hostname.service
+
+[Install]
+WantedBy=multi-user.target
