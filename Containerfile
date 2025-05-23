@@ -118,6 +118,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     postgresql \
     # System utilities
     util-linux-user \
+    util-linux \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
@@ -279,7 +280,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     find /etc/yum.repos.d/ -name '_copr_*.repo' -exec sed -i 's@enabled=1@enabled=0@g' {} \; && \
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf && \
     # Finishing up
-    echo "orb" > /etc/hostname && \
     /usr/libexec/containerbuild/image-info && \
     /usr/libexec/containerbuild/cleanup.sh && \
     mkdir -p /var/tmp && chmod 1777 /var/tmp && \
