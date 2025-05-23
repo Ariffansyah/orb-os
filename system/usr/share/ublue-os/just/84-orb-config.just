@@ -6,6 +6,9 @@ setup-dev-env:
     export ZSH="$HOME/.oh-my-zsh"
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
+    # Install Antigen for Zsh
+    curl -L git.io/antigen > "$HOME/antigen.zsh"
+
     rm -rf /tmp/unemployee.nvim
     git clone --depth=1 https://github.com/Ariffansyah/unemployee.nvim.git /tmp/unemployee.nvim
     mkdir -p "$HOME/.config"
