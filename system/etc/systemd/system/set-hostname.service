@@ -4,7 +4,7 @@ After=network.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/hostnamectl set-hostname orb-os
+ExecStart=/usr/bin/hostnamectl set-hostname orb
 ExecStartPost=/usr/bin/systemctl disable set-hostname.service
 
 [Install]
