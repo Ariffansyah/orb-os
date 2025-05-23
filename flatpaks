@@ -19,11 +19,3 @@ app/org.gnome.Maps/x86_64/stable
 app/org.gnome.Weather/x86_64/stable
 app/com.mattjakeman.ExtensionManager/x86_64/stable
 app/com.getpostman.Postman/x86_64/stable
-app/org.gimp.GIMP/x86_64/stable
-app/org.libreoffice.LibreOffice/x86_64/stable
-runtime/org.freedesktop.Platform.VulkanLayer.MangoHud/x86_64/23.08
-runtime/org.freedesktop.Platform.VulkanLayer.vkBasalt/x86_64/23.08
-runtime/org.freedesktop.Platform.VulkanLayer.OBSVkCapture/x86_64/23.08
-runtime/com.obsproject.Studio.Plugin.OBSVkCapture/x86_64/stable
-runtime/com.obsproject.Studio.Plugin.Gstreamer/x86_64/stable
-runtime/com.obsproject.Studio.Plugin.GStreamerVaapi/x86_64/stable
