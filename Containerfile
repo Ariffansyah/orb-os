@@ -274,7 +274,6 @@ RUN mkdir -p /var/tmp && chmod 1777 /var/tmp && \
     sed -i 's/stage/none/g' /etc/rpm-ostreed.conf && \
     # Finishing up
     # Set the default shell to zsh
-    chsh -s /usr/bin/zsh && \
     echo "orb" > /etc/hostname && \
     /usr/libexec/containerbuild/image-info && \
     /usr/libexec/containerbuild/cleanup.sh && \
