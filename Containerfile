@@ -116,6 +116,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     nautilus \
     # PostgreSQL CLI tools
     postgresql \
+    # System utilities
+    util-linux-user \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
