@@ -1,3 +1,4 @@
+[![build orb](https://github.com/Ariffansyah/orb-os/actions/workflows/build.yml/badge.svg)](https://github.com/Ariffansyah/orb-os/actions/workflows/build.yml)
 # Orb OS
 Orb OS is a Linux-based operating system designed with developers in mind. Built for speed, simplicity, and productivity, Orb OS comes pre-configured with essential development tools, libraries, and environments—ready to use straight after installation. Whether you're coding in Python, JavaScript, C++, or exploring web and backend development, Orb OS offers a streamlined, bloat-free experience that empowers you to focus on building, not configuring.
 ## Key Features
@@ -30,7 +31,17 @@ and then restart the gnome shell by pressing `Alt + F2` and typing `r` and press
 ```
 ujust enable
 ```
+if the extensions is not installed, you can install it manually or reboot and try again.
+
+## (Optional) neovim, ghostty, tmux, zsh, and starship configuration
+You can install the optional configuration for neovim, ghostty, tmux, zsh, and starship by running the following command:
+```
+ujust setup-dev-env
+```
+the config base on [dotfiles](https://github.com/Ariffansyah/dotfiles) and [neovim](https://github.com/Ariffansyah/unemployee.nvim).
 
 ## Preview
-![fastfetch](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/250511_21h21m38s_screenshot.png)
-![desktop](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/250511_21h22m22s_screenshot.png)
+![fastfetch](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/fastfetch.png)
+<div align="center"><table><tr>Light or Dark</tr><tr><td>
+<img src="assets/light.png"/></td><td>
+<img src="assets/dark.png"/></td></tr></table></div>
