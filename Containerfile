@@ -165,8 +165,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Editors
     neovim \
     lazygit \
-    # QT
-    qt-creator \
     # Qt5 development packages
     qt5-qtbase-devel qt5-qttools qt5-qtdeclarative-devel qt5-qtquickcontrols2-devel qt5-qtmultimedia-devel qt5-qtwebsockets-devel \
     # Qt6 development packages
