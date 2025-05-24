@@ -97,6 +97,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/pgdev/ghostty/repo/fedora-"${FEDORA_MAJOR_VERSION}"/pgdev-ghostty-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-starship.repo \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_atim-lazygit.repo \
+    https://copr.fedorainfracloud.org/coprs/atim/lazygit/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-lazygit-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     rpm-ostree install \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
@@ -110,6 +112,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
     # Terminal utilities
     git vim zsh starship tmux \
+    eza \
     # Terminal emulators
     ghostty ptyxis \
     # File manager
@@ -159,6 +162,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     cascadia-code-nf-fonts cascadia-mono-nf-fonts \
     # Editors
     neovim \
+    lazygit \
     # QT
     qt-creator \
     # Qt5 development packages
