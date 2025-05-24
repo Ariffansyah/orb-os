@@ -43,5 +43,5 @@ the config base on [dotfiles](https://github.com/Ariffansyah/dotfiles) and [neov
 ## Preview
 ![fastfetch](https://raw.githubusercontent.com/Ariffansyah/orb-os/refs/heads/main/assets/fastfetch.png)
 <div align="center"><table><tr>Light or Dark</tr><tr><td>
-<img src="assets/light.png"/></td><td>
-<img src="assets/dark.png"/></td></tr></table></div>
+<img src="assets/lighttheme.png"/></td><td>
+<img src="assets/darktheme.png"/></td></tr></table></div>
