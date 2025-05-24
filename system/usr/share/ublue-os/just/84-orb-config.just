@@ -7,7 +7,7 @@ setup-dev-env:
     sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
 
     # Install Antigen for Zsh
-    curl -L git.io/antigen > "$HOME/antigen.zsh"
+    curl -sSL https://raw.githubusercontent.com/BillyAddlers/rezsh/refs/heads/master/check_antigen.sh | bash
 
     rm -rf /tmp/unemployee.nvim
     git clone --depth=1 https://github.com/Ariffansyah/unemployee.nvim.git /tmp/unemployee.nvim
