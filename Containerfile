@@ -99,6 +99,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     https://copr.fedorainfracloud.org/coprs/atim/starship/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-starship-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     curl -Lo /etc/yum.repos.d/_copr_atim-lazygit.repo \
     https://copr.fedorainfracloud.org/coprs/atim/lazygit/repo/fedora-"${FEDORA_MAJOR_VERSION}"/atim-lazygit-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
+    curl -Lo /etc/yum.repos.d/_copr_alternateved-eza.repo \
+    https://copr.fedorainfracloud.org/coprs/alternateved/eza/repo/fedora-"${FEDORA_MAJOR_VERSION}"/alternateved-eza-fedora-"${FEDORA_MAJOR_VERSION}".repo && \
     rpm-ostree install \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
