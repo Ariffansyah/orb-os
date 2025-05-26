@@ -120,7 +120,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # File manager
     nautilus \
     # PostgreSQL CLI tools
-    postgresql \
+    postgresql postgresql-server\
     # System utilities
     util-linux-user \
     util-linux \
