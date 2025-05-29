@@ -115,6 +115,8 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # Terminal utilities
     git vim zsh starship tmux \
     eza \
+    # zram
+    zram-generator-defaults \
     # Terminal emulators
     ghostty ptyxis \
     # File manager
