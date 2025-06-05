@@ -124,7 +124,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     # PostgreSQL CLI tools
     postgresql postgresql-server\
     # System utilities
-    util-linux-user \
     util-linux \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
