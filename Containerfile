@@ -175,13 +175,11 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     ostree container commit
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    curl -LO https://pkg.cloudflareclient.com/dists/centos/8/amd64/cloudflare-warp-release-latest.el8.noarch.rpm && \
-    rpm-ostree install ./cloudflare-warp-release-latest.el8.noarch.rpm && \
-    rpm-ostree install arduino-cli cloudflare-warp && \
+    rpm-ostree install arduino-cli && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-#+==========================================
+# ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
 # Install GNOME desktop environment and utilities, and only RPM-packaged extensions
