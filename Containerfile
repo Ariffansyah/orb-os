@@ -170,10 +170,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     qt5-qtbase-devel qt5-qttools qt5-qtdeclarative-devel qt5-qtquickcontrols2-devel qt5-qtmultimedia-devel qt5-qtwebsockets-devel \
     # Qt6 development packages
     qt6-qtbase-devel qt6-qttools qt6-qtdeclarative-devel qt6-qtquick3d-devel qt6-qtmultimedia-devel qt6-qtwebsockets-devel \
-    # arduino
-    arduino-cli \
-    # warp cli
-    warp-cli \
     || true && \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
