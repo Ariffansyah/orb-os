@@ -174,6 +174,19 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    curl -fsSL https://pkg.cloudflareclient.com/pubkey.gpg | \
+      gpg --dearmor -o /etc/pki/rpm-gpg/RPM-GPG-KEY-cloudflare && \
+    curl -fsSL -o /etc/yum.repos.d/cloudflare-warp.repo \
+      https://pkg.cloudflareclient.com/cloudflare-warp.repo && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
+RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
+    rpm-ostree install arduino-cli cloudflare-warp || true && \
+    /usr/libexec/containerbuild/cleanup.sh && \
+    ostree container commit
+
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
