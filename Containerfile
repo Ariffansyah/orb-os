@@ -174,11 +174,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install arduino-cli && \
-    /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
