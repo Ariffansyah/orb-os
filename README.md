@@ -7,7 +7,7 @@ Orb OS is a Linux-based operating system designed with developers in mind. Built
 - **Customizable**: Easily customize your environment to suit your workflow.
 
 ### Installation
-1. Download the Orb OS ISO (coming soon).
+1. Download the [Orb OS ISO](https://github.com/Ariffansyah/orb-os/actions/workflows/build-iso.yml) (choose the latest workflow and then download the artifact).
 2. Create a bootable USB drive using tools like Rufus or Etcher.
 3. Boot from the USB drive and follow the on-screen instructions to install Orb OS.
 4. Once installed, log in and start coding!
