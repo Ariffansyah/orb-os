@@ -174,12 +174,6 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
-RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
-    rpm-ostree install \
-    libXcursor-devel.x86_64 libXrandr-devel.x86_64 libXinerama-devel.x86_64 libXi-devel.x86_64 libX11-devel.x86_64 \
-    && /usr/libexec/containerbuild/cleanup.sh && \
-    ostree container commit
-
 # ==========================================
 # SECTION 6: DESKTOP ENVIRONMENT
 # ==========================================
