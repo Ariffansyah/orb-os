@@ -176,7 +176,7 @@ RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
 
 RUN --mount=type=cache,dst=/var/cache/rpm-ostree \
     rpm-ostree install \
-    libXcursor-devel libXrandr-devel libXinerama-devel libXi-devel mesa-libGL-devel libX11-devel \
+    libXcursor-devel.x86_64 libXrandr-devel.x86_64 libXinerama-devel.x86_64 libXi-devel.x86_64 mesa-libGL-devel.x86_64 libX11-devel.x86_64 \
     && /usr/libexec/containerbuild/cleanup.sh && \
     ostree container commit
 
